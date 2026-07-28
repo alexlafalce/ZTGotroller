@@ -97,8 +97,8 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
   and privileged lab-driver contract complete)
 - Benchmark steady-state and loaded memory against the 1.14.2 executable using
   equivalent networks, members, requests, uptime, and platform constraints.
-  (equivalent state-load harness complete; agent-driven load measurements
-  remain)
+  (five-run equivalent state-load measurement complete; agent-driven load is a
+  recurring release-lab measurement)
 
 The project will not duplicate organization management, multi-user
 administration, or web presentation already provided by external clients.
