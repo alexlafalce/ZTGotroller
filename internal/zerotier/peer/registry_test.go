@@ -43,7 +43,9 @@ func TestRegistryLearnsAndAuthenticatesPeer(t *testing.T) {
 		t.Fatal(err)
 	}
 	later := now.Add(time.Second)
-	decoded, authenticated, err := registry.Authenticate(armored, controller.Address(), later)
+	decoded, authenticated, err := registry.Authenticate(
+		armored, controller.Address(), netip.MustParseAddrPort("198.51.100.2:40001"), later,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +68,9 @@ func TestRegistryRejectsUnknownAndTamperedPackets(t *testing.T) {
 		t.Fatal(err)
 	}
 	registry := NewRegistry()
-	if _, _, err := registry.Authenticate(armored, controller.Address(), time.Now()); !errors.Is(err, ErrNotFound) {
+	if _, _, err := registry.Authenticate(
+		armored, controller.Address(), netip.MustParseAddrPort("192.0.2.1:9993"), time.Now(),
+	); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("got %v, want peer not found", err)
 	}
 }

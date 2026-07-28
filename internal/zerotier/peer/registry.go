@@ -89,7 +89,12 @@ func (registry *Registry) Get(nodeID domain.NodeID) (Session, error) {
 	return cloneSession(session), nil
 }
 
-func (registry *Registry) Authenticate(armored []byte, destination domain.NodeID, now time.Time) (packet.Decoded, Session, error) {
+func (registry *Registry) Authenticate(
+	armored []byte,
+	destination domain.NodeID,
+	endpoint netip.AddrPort,
+	now time.Time,
+) (packet.Decoded, Session, error) {
 	routing, err := packet.ParseRouting(armored)
 	if err != nil {
 		return packet.Decoded{}, Session{}, err
@@ -110,11 +115,16 @@ func (registry *Registry) Authenticate(armored []byte, destination domain.NodeID
 	if now.IsZero() {
 		return packet.Decoded{}, Session{}, errors.New("packet observation time is required")
 	}
+	if !endpoint.IsValid() {
+		return packet.Decoded{}, Session{}, errors.New("packet endpoint is invalid")
+	}
 	session.LastSeen = now.UTC()
+	session.Endpoint = endpoint
 	registry.mu.Lock()
 	current, stillPresent := registry.sessions[routing.Source]
 	if stillPresent && current.Identity.String() == session.Identity.String() {
 		current.LastSeen = session.LastSeen
+		current.Endpoint = endpoint
 		registry.sessions[routing.Source] = current
 		session = current
 	}
