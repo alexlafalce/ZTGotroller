@@ -2,7 +2,10 @@ module github.com/alexlafalce/ZTGotroller
 
 go 1.22
 
-require modernc.org/sqlite v1.34.5
+require (
+	golang.org/x/crypto v0.24.0
+	modernc.org/sqlite v1.34.5
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

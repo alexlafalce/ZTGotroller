@@ -60,6 +60,10 @@ The first 64 bytes are a standard Ed25519 signature over the first 32 bytes of
 `SHA-512(message)`; the final 32 bytes repeat that digest prefix. Verification
 checks both parts.
 
-This milestone still does not claim local proof-of-work validation, identity
-generation or ECDH agreement. Those operations require their own
-cross-language vectors.
+Local validation implements the same memory-hard composition and accepts the
+known-good 1.14.2 self-test identity while rejecting its known altered-address
+variant and an altered public key. Validation allocates a 2 MiB work area per
+call, as the original algorithm requires.
+
+This milestone still does not implement identity generation or ECDH agreement.
+Those operations require their own cross-language vectors.
