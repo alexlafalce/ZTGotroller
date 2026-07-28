@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -109,6 +110,8 @@ type legacyMemberPatch struct {
 	Name                     *string       `json:"name"`
 	Authorized               *bool         `json:"authorized"`
 	ActiveBridge             *bool         `json:"activeBridge"`
+	NetworkRelay             *bool         `json:"networkRelay"`
+	MulticastReplicator      *bool         `json:"multicastReplicator"`
 	NoAutoAssignIPs          *bool         `json:"noAutoAssignIps"`
 	IPAssignments            *[]netip.Addr `json:"ipAssignments"`
 	Capabilities             *[]uint32     `json:"capabilities"`
@@ -345,7 +348,7 @@ func (api *legacyAPI) listMembersDetailed(response http.ResponseWriter, request 
 	data := make([]map[string]any, 0, len(members))
 	authorized := 0
 	for _, member := range members {
-		data = append(data, api.renderLegacyMember(member))
+		data = append(data, api.renderLegacyMember(request.Context(), member))
 		if member.Authorized {
 			authorized++
 		}
@@ -361,7 +364,7 @@ func (api *legacyAPI) getMember(response http.ResponseWriter, request *http.Requ
 	if !ok {
 		return
 	}
-	writeJSON(response, http.StatusOK, api.renderLegacyMember(member))
+	writeJSON(response, http.StatusOK, api.renderLegacyMember(request.Context(), member))
 }
 
 func (api *legacyAPI) putMember(response http.ResponseWriter, request *http.Request) {
@@ -383,7 +386,9 @@ func (api *legacyAPI) putMember(response http.ResponseWriter, request *http.Requ
 		return
 	}
 	update := controller.MemberUpdate{
-		Name: member.Name, ActiveBridge: member.ActiveBridge, NoAutoAssign: member.NoAutoAssign,
+		Name: member.Name, ActiveBridge: member.ActiveBridge,
+		NetworkRelay: member.NetworkRelay, MulticastReplicator: member.MulticastReplicator,
+		NoAutoAssign:  member.NoAutoAssign,
 		IPAssignments: member.IPAssignments, Capabilities: member.Capabilities, Tags: member.Tags,
 		AuthenticationExpiryTime: member.AuthenticationExpiryTime,
 		AuthenticationURL:        member.AuthenticationURL, RemoteTraceTarget: member.RemoteTraceTarget,
@@ -394,6 +399,12 @@ func (api *legacyAPI) putMember(response http.ResponseWriter, request *http.Requ
 	}
 	if patch.ActiveBridge != nil {
 		update.ActiveBridge = *patch.ActiveBridge
+	}
+	if patch.NetworkRelay != nil {
+		update.NetworkRelay = *patch.NetworkRelay
+	}
+	if patch.MulticastReplicator != nil {
+		update.MulticastReplicator = *patch.MulticastReplicator
 	}
 	if patch.NoAutoAssignIPs != nil {
 		update.NoAutoAssign = *patch.NoAutoAssignIPs
@@ -436,7 +447,7 @@ func (api *legacyAPI) putMember(response http.ResponseWriter, request *http.Requ
 			return
 		}
 	}
-	writeJSON(response, http.StatusOK, api.renderLegacyMember(member))
+	writeJSON(response, http.StatusOK, api.renderLegacyMember(request.Context(), member))
 }
 
 func (api *legacyAPI) deleteMember(response http.ResponseWriter, request *http.Request) {
@@ -448,7 +459,7 @@ func (api *legacyAPI) deleteMember(response http.ResponseWriter, request *http.R
 		writeError(response, err)
 		return
 	}
-	writeJSON(response, http.StatusOK, api.renderLegacyMember(member))
+	writeJSON(response, http.StatusOK, api.renderLegacyMember(request.Context(), member))
 }
 
 func (api *legacyAPI) listPeers(response http.ResponseWriter, _ *http.Request) {
@@ -701,7 +712,7 @@ func renderLegacyNetwork(network domain.Network) map[string]any {
 	}
 }
 
-func (api *legacyAPI) renderLegacyMember(member domain.Member) map[string]any {
+func (api *legacyAPI) renderLegacyMember(ctx context.Context, member domain.Member) map[string]any {
 	ips := make([]string, 0, len(member.IPAssignments))
 	for _, address := range member.IPAssignments {
 		ips = append(ips, address.String())
@@ -714,6 +725,7 @@ func (api *legacyAPI) renderLegacyMember(member domain.Member) map[string]any {
 		"id": string(member.NodeID), "address": string(member.NodeID),
 		"nwid": string(member.NetworkID), "name": member.Name,
 		"authorized": member.Authorized, "activeBridge": member.ActiveBridge,
+		"networkRelay": member.NetworkRelay, "multicastReplicator": member.MulticastReplicator,
 		"noAutoAssignIps": member.NoAutoAssign, "ipAssignments": ips,
 		"capabilities": member.Capabilities, "tags": tags,
 		"creationTime": member.CreatedAt.UnixMilli(), "revision": member.Revision,
@@ -744,6 +756,22 @@ func (api *legacyAPI) renderLegacyMember(member domain.Member) map[string]any {
 			result["clientVersionMinor"] = int(session.Minor)
 			result["clientVersionRev"] = int(session.Revision)
 			result["clientVersionProtocol"] = int(session.ProtocolVersion)
+		}
+	}
+	if metadata, err := api.service.GetAgentMetadata(ctx, member.NetworkID, member.NodeID); err == nil {
+		result["target"] = metadata.Target
+		result["agentMetadata"] = metadata
+		if metadata.Protocol != 0 {
+			result["clientVersionProtocol"] = metadata.Protocol
+			result["vProto"] = metadata.Protocol
+		}
+		if metadata.Major != 0 || metadata.Minor != 0 || metadata.Revision != 0 {
+			result["clientVersionMajor"] = metadata.Major
+			result["clientVersionMinor"] = metadata.Minor
+			result["clientVersionRev"] = metadata.Revision
+			result["vMajor"] = metadata.Major
+			result["vMinor"] = metadata.Minor
+			result["vRev"] = metadata.Revision
 		}
 	}
 	return result

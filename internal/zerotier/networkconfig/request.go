@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/alexlafalce/ZTGotroller/internal/domain"
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/packet"
@@ -138,6 +139,33 @@ func (metadata Metadata) HexUint(key string) (uint64, bool) {
 		result = result<<4 | uint64(nibble)
 	}
 	return result, true
+}
+
+func (request Request) AgentMetadata(
+	networkID domain.NetworkID,
+	nodeID domain.NodeID,
+	updatedAt time.Time,
+) domain.AgentMetadata {
+	hexValue := func(key string) uint64 {
+		value, _ := request.Metadata.HexUint(key)
+		return value
+	}
+	return domain.AgentMetadata{
+		NetworkID:           networkID,
+		NodeID:              nodeID,
+		Target:              string(request.Metadata["o"]),
+		Vendor:              hexValue("vend"),
+		Protocol:            hexValue("pv"),
+		Major:               hexValue("majv"),
+		Minor:               hexValue("minv"),
+		Revision:            hexValue("revv"),
+		RulesEngineRevision: hexValue("revr"),
+		MaxRules:            hexValue("mr"),
+		MaxCapabilities:     hexValue("mc"),
+		MaxCapabilityRules:  hexValue("mcr"),
+		MaxTags:             hexValue("mt"),
+		UpdatedAt:           updatedAt.UTC(),
+	}
 }
 
 func splitLines(value []byte) [][]byte {

@@ -114,6 +114,11 @@ signed private-network configuration responses. Interoperability is validated
 between an unmodified `1.14.2` agent and the current MPL `origin/dev` agent,
 including peer-to-peer connectivity.
 
+Compatibility support for the ZeroTier One 1.16.2 agent is currently beta. It
+includes encrypted HELLO extended armor, 512 network specialists, experimental
+network-relay roles, and persisted agent platform/capability metadata. See
+[AGENT-1.16.2-BETA.md](docs/AGENT-1.16.2-BETA.md) for its scope and limitations.
+
 The first interoperability milestone is complete:
 
 1. Run one ZeroTier One `1.14.2` agent and one current MPL agent.

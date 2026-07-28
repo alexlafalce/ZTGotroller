@@ -140,6 +140,14 @@ func (identity Identity) Verify(message []byte, signature Signature) bool {
 // Agree derives ZeroTier symmetric key material with the Curve25519 halves of
 // two identities. The raw X25519 secret is expanded through repeated SHA-512.
 func (identity Identity) Agree(peer Identity, length int) ([]byte, error) {
+	var public [32]byte
+	copy(public[:], peer.publicKey[:32])
+	return identity.AgreeRawPublic(public, length)
+}
+
+// AgreeRawPublic derives key material from a bare X25519 public key. Extended
+// packet armor uses an ephemeral public key rather than a complete identity.
+func (identity Identity) AgreeRawPublic(public [32]byte, length int) ([]byte, error) {
 	if !identity.hasPrivate {
 		return nil, errors.New("identity has no private key")
 	}
@@ -151,7 +159,7 @@ func (identity Identity) Agree(peer Identity, length int) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load private agreement key: %w", err)
 	}
-	publicKey, err := curve.NewPublicKey(peer.publicKey[:32])
+	publicKey, err := curve.NewPublicKey(public[:])
 	if err != nil {
 		return nil, fmt.Errorf("load public agreement key: %w", err)
 	}

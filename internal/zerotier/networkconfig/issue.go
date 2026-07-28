@@ -12,6 +12,7 @@ import (
 type IssueInput struct {
 	Network         domain.Network
 	Member          domain.Member
+	NetworkMembers  []domain.Member
 	Recipient       identity.Identity
 	Controller      identity.Identity
 	IssuedAt        time.Time
@@ -114,6 +115,7 @@ func IssueAuthorizedConfig(input IssueInput) (IssuedConfig, error) {
 	dictionary, err := BuildDictionary(ConfigInput{
 		Network:                 input.Network,
 		Member:                  input.Member,
+		NetworkMembers:          input.NetworkMembers,
 		IssuedAt:                input.IssuedAt,
 		Revision:                input.Revision,
 		CredentialTimeMaxDelta:  input.CredentialDelta,

@@ -59,7 +59,7 @@ func TestUDPServerEndToEnd(t *testing.T) {
 	defer client.Close()
 	serverEndpoint := serverConnection.LocalAddr().(*net.UDPAddr).AddrPort()
 	clientReassembler := newReassembler()
-	hello, key := buildHelloDatagram(t, controllerIdentity, remoteIdentity)
+	hello, key := buildHelloDatagram(t, controllerIdentity, remoteIdentity, false)
 	writeUDP(t, client, serverEndpoint, hello)
 	reply := readPacketUDP(t, client, serverEndpoint, clientReassembler)
 	if decoded, err := packet.DearmorSession(reply, key); err != nil || decoded.Verb != packet.VerbOK {

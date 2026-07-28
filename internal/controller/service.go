@@ -187,6 +187,11 @@ func (service *Service) SetMemberAuthorization(
 	if err := service.store.SaveMember(ctx, member); err != nil {
 		return domain.Member{}, fmt.Errorf("save member: %w", err)
 	}
+	if memberHasSpecialistRole(member) {
+		if err := service.bumpNetworkRevision(ctx, networkID); err != nil {
+			return domain.Member{}, fmt.Errorf("invalidate specialist configuration: %w", err)
+		}
+	}
 	saved, err := service.store.GetMember(ctx, networkID, nodeID)
 	if err == nil && !authorized && service.onDeauthorize != nil {
 		service.onDeauthorize(ctx, networkID, nodeID, member.UpdatedAt)

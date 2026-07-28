@@ -110,6 +110,61 @@ func TestBuildHelloRoundTrip(t *testing.T) {
 	}
 }
 
+func TestEncryptedHelloExtendedArmorRoundTrip(t *testing.T) {
+	controller := helloController(t)
+	peer, err := identity.Generate(
+		context.Background(),
+		bytes.NewReader(bytes.Repeat([]byte{0x61}, identity.PrivateKeyLength)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := peer.Public().MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte{ProtocolVersionCurrent, 1, 16, 0, 2}
+	payload = binary.BigEndian.AppendUint64(payload, 1_700_000_000_000)
+	payload = append(payload, public...)
+	payload = append(payload, 0)
+	payload = binary.BigEndian.AppendUint64(payload, 0)
+	payload = binary.BigEndian.AppendUint64(payload, 0)
+	draft, err := Build(901, controller.Address(), peer.Address(), VerbHello, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agreed, err := peer.Agree(controller.Public(), SessionKeyLength)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var key SessionKey
+	copy(key[:], agreed)
+	armored, err := ArmorExtended(draft, key, controller.Public())
+	if err != nil {
+		t.Fatal(err)
+	}
+	routing, err := ParseRouting(armored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !routing.ExtendedArmor || len(armored) != len(draft)+ephemeralPublicKeyLength {
+		t.Fatalf("unexpected extended armor routing or length: %+v, %d", routing, len(armored))
+	}
+	hello, derived, err := AuthenticateHello(armored, controller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if derived != key || hello.Identity.Address() != peer.Address() ||
+		hello.Routing.PacketID != 901 {
+		t.Fatalf("unexpected encrypted HELLO: %+v", hello)
+	}
+
+	armored[len(armored)-1] ^= 1
+	if _, _, err := AuthenticateHello(armored, controller); err == nil {
+		t.Fatal("tampered ephemeral key passed authentication")
+	}
+}
+
 func TestHelloRejectsTamperedIdentity(t *testing.T) {
 	controller := helloController(t)
 	peer := controller.Public()

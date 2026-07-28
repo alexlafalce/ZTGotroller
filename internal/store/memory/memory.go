@@ -15,12 +15,14 @@ type Store struct {
 	mu       sync.RWMutex
 	networks map[domain.NetworkID]domain.Network
 	members  map[domain.NetworkID]map[domain.NodeID]domain.Member
+	metadata map[domain.NetworkID]map[domain.NodeID]domain.AgentMetadata
 }
 
 func New() *Store {
 	return &Store{
 		networks: make(map[domain.NetworkID]domain.Network),
 		members:  make(map[domain.NetworkID]map[domain.NodeID]domain.Member),
+		metadata: make(map[domain.NetworkID]map[domain.NodeID]domain.AgentMetadata),
 	}
 }
 
@@ -108,6 +110,7 @@ func (memory *Store) DeleteNetwork(ctx context.Context, id domain.NetworkID, rev
 	}
 	delete(memory.networks, id)
 	delete(memory.members, id)
+	delete(memory.metadata, id)
 	return nil
 }
 
@@ -214,7 +217,46 @@ func (memory *Store) DeleteMember(
 		return store.ErrConflict
 	}
 	delete(memory.members[networkID], nodeID)
+	delete(memory.metadata[networkID], nodeID)
 	return nil
+}
+
+func (memory *Store) UpsertAgentMetadata(ctx context.Context, metadata domain.AgentMetadata) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := metadata.Validate(); err != nil {
+		return err
+	}
+	memory.mu.Lock()
+	defer memory.mu.Unlock()
+	if _, exists := memory.members[metadata.NetworkID][metadata.NodeID]; !exists {
+		return store.ErrNotFound
+	}
+	networkMetadata := memory.metadata[metadata.NetworkID]
+	if networkMetadata == nil {
+		networkMetadata = make(map[domain.NodeID]domain.AgentMetadata)
+		memory.metadata[metadata.NetworkID] = networkMetadata
+	}
+	networkMetadata[metadata.NodeID] = metadata
+	return nil
+}
+
+func (memory *Store) GetAgentMetadata(
+	ctx context.Context,
+	networkID domain.NetworkID,
+	nodeID domain.NodeID,
+) (domain.AgentMetadata, error) {
+	if err := ctx.Err(); err != nil {
+		return domain.AgentMetadata{}, err
+	}
+	memory.mu.RLock()
+	defer memory.mu.RUnlock()
+	metadata, exists := memory.metadata[networkID][nodeID]
+	if !exists {
+		return domain.AgentMetadata{}, store.ErrNotFound
+	}
+	return metadata, nil
 }
 
 func cloneNetwork(network domain.Network) domain.Network {

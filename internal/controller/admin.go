@@ -32,6 +32,8 @@ type NetworkUpdate struct {
 type MemberUpdate struct {
 	Name                     string            `json:"name"`
 	ActiveBridge             bool              `json:"activeBridge"`
+	NetworkRelay             bool              `json:"networkRelay"`
+	MulticastReplicator      bool              `json:"multicastReplicator"`
 	NoAutoAssign             bool              `json:"noAutoAssignIps"`
 	IPAssignments            []netip.Addr      `json:"ipAssignments"`
 	Capabilities             []uint32          `json:"capabilities"`
@@ -123,6 +125,17 @@ func (service *Service) GetMember(
 	return service.store.GetMember(ctx, networkID, nodeID)
 }
 
+func (service *Service) GetAgentMetadata(
+	ctx context.Context,
+	networkID domain.NetworkID,
+	nodeID domain.NodeID,
+) (domain.AgentMetadata, error) {
+	if err := service.validateOwnedNetwork(networkID); err != nil {
+		return domain.AgentMetadata{}, err
+	}
+	return service.store.GetAgentMetadata(ctx, networkID, nodeID)
+}
+
 func (service *Service) DeleteMember(
 	ctx context.Context,
 	networkID domain.NetworkID,
@@ -134,6 +147,11 @@ func (service *Service) DeleteMember(
 	member, err := service.store.GetMember(ctx, networkID, nodeID)
 	if err != nil {
 		return err
+	}
+	if member.Authorized && memberHasSpecialistRole(member) {
+		if err := service.bumpNetworkRevision(ctx, networkID); err != nil {
+			return fmt.Errorf("invalidate specialist configuration: %w", err)
+		}
 	}
 	return service.store.DeleteMember(ctx, networkID, nodeID, member.Revision)
 }
@@ -168,7 +186,13 @@ func (service *Service) UpdateMember(
 	if member.Revision != expectedRevision {
 		return domain.Member{}, store.ErrConflict
 	}
+	specialistsChanged := member.Authorized &&
+		(member.ActiveBridge != update.ActiveBridge ||
+			member.NetworkRelay != update.NetworkRelay ||
+			member.MulticastReplicator != update.MulticastReplicator)
 	member.ActiveBridge = update.ActiveBridge
+	member.NetworkRelay = update.NetworkRelay
+	member.MulticastReplicator = update.MulticastReplicator
 	member.Name = update.Name
 	member.NoAutoAssign = update.NoAutoAssign
 	member.IPAssignments = append([]netip.Addr(nil), update.IPAssignments...)
@@ -186,7 +210,28 @@ func (service *Service) UpdateMember(
 	if err := service.store.SaveMember(ctx, member); err != nil {
 		return domain.Member{}, err
 	}
+	if specialistsChanged {
+		if err := service.bumpNetworkRevision(ctx, networkID); err != nil {
+			return domain.Member{}, fmt.Errorf("invalidate specialist configuration: %w", err)
+		}
+	}
 	return service.store.GetMember(ctx, networkID, nodeID)
+}
+
+func memberHasSpecialistRole(member domain.Member) bool {
+	return member.ActiveBridge || member.NetworkRelay || member.MulticastReplicator
+}
+
+func (service *Service) bumpNetworkRevision(
+	ctx context.Context,
+	networkID domain.NetworkID,
+) error {
+	network, err := service.store.GetNetwork(ctx, networkID)
+	if err != nil {
+		return err
+	}
+	network.UpdatedAt = service.now().UTC()
+	return service.store.SaveNetwork(ctx, network)
 }
 
 func cloneDNS(value *domain.DNSConfig) *domain.DNSConfig {

@@ -130,6 +130,16 @@ func AuthenticateHello(armored []byte, local identity.Identity) (Hello, SessionK
 	if err != nil {
 		return Hello{}, SessionKey{}, err
 	}
+	if routing.ExtendedArmor {
+		armored, err = DearmorExtended(armored, local)
+		if err != nil {
+			return Hello{}, SessionKey{}, err
+		}
+		routing, err = ParseRouting(armored)
+		if err != nil {
+			return Hello{}, SessionKey{}, err
+		}
+	}
 	if routing.Cipher != CipherC25519Poly1305Clear {
 		return Hello{}, SessionKey{}, errors.New("initial HELLO must use authenticated clear armor")
 	}

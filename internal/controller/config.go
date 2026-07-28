@@ -54,6 +54,12 @@ func (service *Service) HandleConfigRequest(
 	if err != nil {
 		return nil, err
 	}
+	if err := service.store.UpsertAgentMetadata(
+		ctx,
+		request.AgentMetadata(request.NetworkID, recipient.Address(), service.now()),
+	); err != nil {
+		return nil, fmt.Errorf("persist agent metadata: %w", err)
+	}
 	if !member.Authorized {
 		return service.configErrorReply(
 			decoded.Routing.PacketID, request.NetworkID, networkconfig.ErrorAccessDenied,
@@ -63,17 +69,22 @@ func (service *Service) HandleConfigRequest(
 	if err != nil {
 		return nil, err
 	}
+	networkMembers, err := service.store.ListMembers(ctx, network.ID)
+	if err != nil {
+		return nil, fmt.Errorf("list network specialists: %w", err)
+	}
 	revision, err := configRevision(network.Revision, member.Revision)
 	if err != nil {
 		return nil, err
 	}
 	issued, err := networkconfig.IssueAuthorizedConfig(networkconfig.IssueInput{
-		Network:    network,
-		Member:     member,
-		Recipient:  recipient,
-		Controller: controllerIdentity,
-		IssuedAt:   service.now().UTC(),
-		Revision:   revision,
+		Network:        network,
+		Member:         member,
+		NetworkMembers: networkMembers,
+		Recipient:      recipient,
+		Controller:     controllerIdentity,
+		IssuedAt:       service.now().UTC(),
+		Revision:       revision,
 	})
 	if err != nil {
 		return nil, err

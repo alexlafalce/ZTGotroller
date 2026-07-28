@@ -3,6 +3,7 @@ package networkconfig
 import (
 	"encoding/binary"
 	"testing"
+	"time"
 
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/packet"
 )
@@ -68,6 +69,25 @@ func TestMetadataEscapesAndDuplicateSemantics(t *testing.T) {
 	expected := "x\x00y\nz\r\\="
 	if string(metadata["binary"]) != expected {
 		t.Fatalf("got %q, want %q", metadata["binary"], expected)
+	}
+}
+
+func TestAgent1162MetadataProjection(t *testing.T) {
+	metadata, err := ParseMetadata([]byte(
+		"o=linux/arm64\nvend=0\npv=d\nmajv=1\nminv=10\nrevv=2\n" +
+			"revr=7\nmr=100\nmc=40\nmcr=20\nmt=20\n",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_700_000_000, 0).UTC()
+	projected := (Request{Metadata: metadata}).AgentMetadata(
+		"8056c2e21c000001", "abcdef1234", now,
+	)
+	if projected.Target != "linux/arm64" || projected.Protocol != 13 ||
+		projected.Major != 1 || projected.Minor != 16 || projected.Revision != 2 ||
+		projected.MaxRules != 256 || projected.MaxCapabilities != 64 {
+		t.Fatalf("unexpected projected metadata: %+v", projected)
 	}
 }
 

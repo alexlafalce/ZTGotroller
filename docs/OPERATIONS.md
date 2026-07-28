@@ -72,6 +72,11 @@ transactionally during startup. A binary refuses databases with a newer schema
 version, preventing accidental downgrade. Backup before installing a release
 that changes the schema.
 
+The 1.16.2-agent compatibility beta migrates schema version 1 to version 2 by
+adding durable observed agent metadata. After migration, use a schema-version-2
+binary or restore the complete pre-upgrade backup; do not open the migrated
+database with an older binary.
+
 ## Reproducible releases
 
 Tag pushes matching `v*` build trimmed, static binaries for Linux, macOS, and
