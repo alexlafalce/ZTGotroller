@@ -65,5 +65,18 @@ known-good 1.14.2 self-test identity while rejecting its known altered-address
 variant and an altered public key. Validation allocates a 2 MiB work area per
 call, as the original algorithm requires.
 
-This milestone still does not implement identity generation or ECDH agreement.
-Those operations require their own cross-language vectors.
+Curve25519 agreement was checked against `C25519::agree` from 1.14.2. Using the
+known self-test identity for both sides and requesting 64 bytes produced:
+
+```text
+5e912d05aab6562b1252f6e93f9ef85dd03c5fdf5cf0c0d0014bb21781a1cb08
+0497c73264833e319f0484b569668d20f0bcfe56d2e5df58a5a6f13b56d56eeb
+```
+
+Both implementations perform X25519 with the first 32-byte key pair, hash the
+raw secret with SHA-512 and repeatedly hash the previous digest when more than
+64 output bytes are requested.
+
+Identity generation remains unimplemented. It requires a safe persistence
+workflow in addition to a generation vector, because losing or exposing the
+generated secret changes or compromises the controller address.
