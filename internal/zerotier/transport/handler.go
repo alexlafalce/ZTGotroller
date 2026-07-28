@@ -92,6 +92,10 @@ func (handler *Handler) Handle(
 	if err != nil {
 		return nil, err
 	}
+	decoded, err = packet.Decompress(decoded, packet.MaxPacketLength-packet.HeaderLength)
+	if err != nil {
+		return nil, err
+	}
 	switch decoded.Verb {
 	case packet.VerbNetworkConfigRequest:
 		replies, err := handler.service.HandleConfigRequest(

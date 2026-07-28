@@ -1,6 +1,7 @@
 # Network configuration request
 
-After packet reassembly, authentication, decryption and decompression, a
+After packet reassembly, authentication, decryption and bounded raw-LZ4
+decompression, a
 `NETWORK_CONFIG_REQUEST` payload contains:
 
 | Size | Field |
@@ -22,8 +23,8 @@ carriage return, newline, equals and backslash as `\0`, `\r`, `\n`, `\e` and
 retain the first value, matching `Dictionary::get`.
 
 The decoder caps metadata at 1023 bytes, rejects raw nulls and malformed keys,
-and preserves unknown extension bytes. Compressed payloads are rejected until
-the transport layer has decompressed them.
+and preserves unknown extension bytes. The transport layer decompresses
+authenticated payloads before this parser is called.
 
 Reviewed sources:
 

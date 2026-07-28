@@ -52,6 +52,7 @@ Implement and validate:
 - Bounded, expiring inbound fragment reassembly before authentication. (complete)
 - Protocol 12/13 AES-GMAC-SIV session armor with 48-byte key derivation. (complete)
 - Configurable root HELLO announcements for controller identity discovery. (complete)
+- Bounded inbound raw-LZ4 payload decompression. (complete)
 
 ## Milestone 4: minimal controller
 
