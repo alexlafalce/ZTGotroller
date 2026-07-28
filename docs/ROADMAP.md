@@ -42,6 +42,7 @@ Implement and validate:
 - Signed configuration chunks.
 - Authorized configuration assembly with COM, COO, rules, dictionary, and signed chunks. (complete)
 - Authenticated request handling, first-contact registration, authorization errors, and signed replies. (complete)
+- C25519/Poly1305/Salsa20/12 packet construction, authentication, and encryption. (complete)
 
 ## Milestone 4: minimal controller
 
