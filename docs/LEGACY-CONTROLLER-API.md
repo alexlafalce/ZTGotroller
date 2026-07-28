@@ -39,6 +39,8 @@ The adapter accepts unknown JSON properties, applies partial-update semantics,
 and renders legacy names such as `nwid`, `v4AssignMode`,
 `ipAssignmentPools`, `creationTime`, and member tag pairs. Invalid routes and
 IP pools are discarded in the same spirit as the reference controller.
+It reports controller API version 4, accepts both object and historical string
+assignment modes, and persists a newly created network directly at revision 1.
 
 ## Compatibility boundary
 
