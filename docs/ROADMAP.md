@@ -84,9 +84,11 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
   [ZTNet](https://github.com/sinamics/ztnet), against that adapter.
 - Allocate unique IPv4/IPv6 addresses from configured pools when the
   corresponding ZeroTier assignment mode is enabled. (complete)
-- Publish reproducible binaries and container packaging.
+- Publish reproducible binaries and container packaging. (complete)
 - Define database and identity backup, restore, and schema migration workflows.
-- Add structured logs, health details, metrics, and upstream status.
+  (complete)
+- Add health details and initial Prometheus metrics. (complete)
+- Add JSON structured logs and upstream attempt/success status. (complete)
 - Automate the mixed-version agent compatibility matrix.
 - Benchmark steady-state and loaded memory against the 1.14.2 executable using
   equivalent networks, members, requests, uptime, and platform constraints.

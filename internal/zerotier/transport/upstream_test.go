@@ -50,6 +50,10 @@ func TestUpstreamAnnouncementRoundTrip(t *testing.T) {
 	if err := manager.announce(); err != nil {
 		t.Fatal(err)
 	}
+	status := manager.Status()
+	if len(status) != 1 || !status[0].Pending || !status[0].LastAttempt.Equal(now) {
+		t.Fatalf("unexpected pending upstream status: %+v", status)
+	}
 
 	buffer := make([]byte, packet.MaxPacketLength)
 	if err := rootSocket.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
@@ -88,6 +92,10 @@ func TestUpstreamAnnouncementRoundTrip(t *testing.T) {
 	}
 	if !handled {
 		t.Fatal("valid HELLO OK was not consumed")
+	}
+	status = manager.Status()
+	if len(status) != 1 || status[0].Pending || !status[0].LastSuccess.Equal(now) {
+		t.Fatalf("unexpected successful upstream status: %+v", status)
 	}
 }
 

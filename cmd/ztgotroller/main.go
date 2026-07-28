@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -23,8 +23,10 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if err := run(); err != nil {
-		log.Fatal(err)
+		slog.Error("controller stopped", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -43,7 +45,7 @@ func run() error {
 		return fmt.Errorf("controller identity: %w", err)
 	}
 	if created {
-		log.Printf("generated controller identity %s", controllerIdentity.Address())
+		slog.Info("generated controller identity", "address", controllerIdentity.Address())
 	}
 	apiToken := os.Getenv("ZTGOTROLLER_API_TOKEN")
 	if apiToken == "" {
@@ -60,18 +62,6 @@ func run() error {
 		return err
 	}
 	peerRegistry := peer.NewRegistry()
-	handler, err := httpapi.RequireBearerToken(httpapi.NewWithPeers(service, peerRegistry), apiToken)
-	if err != nil {
-		return err
-	}
-	server := &http.Server{
-		Addr:              *listenAddress,
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
 	udpEndpoint, err := net.ResolveUDPAddr("udp", *udpAddress)
 	if err != nil {
 		return fmt.Errorf("resolve UDP listen address: %w", err)
@@ -95,12 +85,12 @@ func run() error {
 			ctx, networkID, nodeID, threshold,
 		)
 		if err != nil {
-			log.Printf("build revocation for %s on %s: %v", nodeID, networkID, err)
+			slog.Error("build revocation", "node", nodeID, "network", networkID, "error", err)
 			return
 		}
 		for _, datagram := range datagrams {
 			if _, err := udpConnection.WriteToUDPAddrPort(datagram.Payload, datagram.Endpoint); err != nil {
-				log.Printf("send revocation to %s: %v", datagram.Endpoint, err)
+				slog.Error("send revocation", "endpoint", datagram.Endpoint, "error", err)
 			}
 		}
 	})
@@ -122,12 +112,26 @@ func run() error {
 		}
 		protocolServer.SetUpstreamManager(upstreamManager)
 	}
+	handler, err := httpapi.RequireBearerToken(
+		httpapi.NewWithRuntime(service, peerRegistry, upstreamManager), apiToken,
+	)
+	if err != nil {
+		return err
+	}
+	server := &http.Server{
+		Addr:              *listenAddress,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	stopped := make(chan error, 2)
 	go func() {
-		log.Printf("administrative API listening on %s", server.Addr)
+		slog.Info("administrative API listening", "address", server.Addr)
 		err := server.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil
@@ -137,13 +141,13 @@ func run() error {
 	if upstreamManager != nil {
 		go func() {
 			if err := upstreamManager.Run(ctx); err != nil {
-				log.Printf("upstream announcements stopped: %v", err)
+				slog.Error("upstream announcements stopped", "error", err)
 				stop()
 			}
 		}()
 	}
 	go func() {
-		log.Printf("ZeroTier protocol listening on %s", udpConnection.LocalAddr())
+		slog.Info("ZeroTier protocol listening", "address", udpConnection.LocalAddr())
 		stopped <- protocolServer.Serve(ctx)
 	}()
 
