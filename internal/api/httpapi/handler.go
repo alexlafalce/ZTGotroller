@@ -18,6 +18,9 @@ type Handler struct {
 
 func New(service *controller.Service) http.Handler {
 	handler := &Handler{service: service, mux: http.NewServeMux()}
+	handler.mux.HandleFunc("GET /healthz", func(response http.ResponseWriter, _ *http.Request) {
+		writeJSON(response, http.StatusOK, map[string]string{"status": "ok"})
+	})
 	handler.mux.HandleFunc("POST /v1/networks", handler.createNetwork)
 	handler.mux.HandleFunc(
 		"POST /v1/networks/{networkID}/members/{nodeID}",

@@ -1,5 +1,25 @@
 # ZTGotroller
 
+Community controller research and implementation for ZeroTier-compatible
+self-hosting.
+
+## Run the administrative service
+
+This stage provides only the administrative API; it does not yet accept
+ZeroTier agent protocol traffic.
+
+```sh
+export ZTGOTROLLER_API_TOKEN='replace-with-a-long-random-token'
+go run ./cmd/ztgotroller \
+  -controller-id 8056c2e21c \
+  -database ./ztgotroller.db
+```
+
+The service listens on `127.0.0.1:9994` by default. All administrative routes
+require `Authorization: Bearer <token>`; `/healthz` is intentionally public.
+Binding to a non-loopback address should only be done behind TLS or a trusted
+reverse proxy.
+
 ZTGotroller is an independent, community-oriented network controller intended
 to interoperate with MPL-licensed ZeroTier agents while preserving the option
 to self-host network management.
@@ -12,8 +32,10 @@ documentation, and interoperability tests.
 
 ## Status
 
-The project is in its provenance and protocol-analysis phase. No functional
-controller has been implemented yet.
+The project has a tested domain model, durable SQLite persistence and an
+authenticated administrative HTTP service. ZeroTier identity cryptography,
+agent wire-protocol handling and network configuration signing are not
+implemented yet.
 
 The first interoperability milestone is:
 
