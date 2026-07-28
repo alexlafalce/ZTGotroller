@@ -75,6 +75,41 @@ func TestHelloBootstrapAndReply(t *testing.T) {
 	}
 }
 
+func TestBuildHelloRoundTrip(t *testing.T) {
+	controller := helloController(t)
+	root, err := identity.Generate(
+		context.Background(),
+		bytes.NewReader(bytes.Repeat([]byte{0x24}, identity.PrivateKeyLength)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agreed, err := controller.Agree(root.Public(), SessionKeyLength)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var key SessionKey
+	copy(key[:], agreed)
+	armored, err := BuildHello(
+		123, root.Public(), controller,
+		LocalVersion{Protocol: ProtocolVersionCurrent, Major: 0, Minor: 1},
+		1_700_000_000_000, 0, 0, key,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hello, derived, err := AuthenticateHello(armored, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if derived != key || hello.Routing.PacketID != 123 ||
+		hello.Identity.Address() != controller.Address() ||
+		hello.Timestamp != 1_700_000_000_000 ||
+		hello.ExternalSurface != nil {
+		t.Fatalf("unexpected outgoing HELLO: %+v", hello)
+	}
+}
+
 func TestHelloRejectsTamperedIdentity(t *testing.T) {
 	controller := helloController(t)
 	peer := controller.Public()

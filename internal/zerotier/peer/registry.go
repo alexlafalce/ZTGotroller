@@ -39,6 +39,34 @@ func NewRegistry() *Registry {
 	return &Registry{sessions: make(map[domain.NodeID]Session)}
 }
 
+func (registry *Registry) RegisterConfigured(
+	peerIdentity identity.Identity,
+	sharedKey packet.SessionKey,
+	endpoint netip.AddrPort,
+	now time.Time,
+) (Session, error) {
+	if !peerIdentity.LocallyValidate() {
+		return Session{}, ErrInvalidIdentity
+	}
+	if !endpoint.IsValid() || now.IsZero() {
+		return Session{}, errors.New("configured peer endpoint and observation time are required")
+	}
+	session := Session{
+		Identity:  peerIdentity.Public(),
+		SharedKey: sharedKey,
+		Endpoint:  endpoint,
+		LastSeen:  now.UTC(),
+	}
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	if existing, ok := registry.sessions[peerIdentity.Address()]; ok &&
+		existing.Identity.String() != session.Identity.String() {
+		return Session{}, fmt.Errorf("%w for address %s", ErrIdentityCollision, peerIdentity.Address())
+	}
+	registry.sessions[peerIdentity.Address()] = session
+	return cloneSession(session), nil
+}
+
 func (registry *Registry) LearnHello(
 	hello packet.Hello,
 	sharedKey packet.SessionKey,

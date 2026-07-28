@@ -51,6 +51,7 @@ Implement and validate:
 - Protocol-level outgoing fragmentation below physical MTU. (complete)
 - Bounded, expiring inbound fragment reassembly before authentication. (complete)
 - Protocol 12/13 AES-GMAC-SIV session armor with 48-byte key derivation. (complete)
+- Configurable root HELLO announcements for controller identity discovery. (complete)
 
 ## Milestone 4: minimal controller
 

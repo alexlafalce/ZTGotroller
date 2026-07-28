@@ -37,6 +37,91 @@ type LocalVersion struct {
 	Revision uint16
 }
 
+type HelloOK struct {
+	RequestPacketID uint64
+	Timestamp       uint64
+	Version         LocalVersion
+	ExternalSurface *InetAddress
+	WorldUpdate     []byte
+}
+
+// BuildHello constructs the authenticated, clear-text bootstrap packet used to
+// introduce a node identity to a known upstream peer.
+func BuildHello(
+	packetID uint64,
+	destination identity.Identity,
+	local identity.Identity,
+	version LocalVersion,
+	timestamp uint64,
+	planetWorldID uint64,
+	planetWorldTimestamp uint64,
+	sharedKey SessionKey,
+) ([]byte, error) {
+	if !local.HasPrivate() {
+		return nil, errors.New("local identity must include its private key")
+	}
+	if !destination.LocallyValidate() {
+		return nil, errors.New("destination identity failed local validation")
+	}
+	if version.Protocol < MinimumProtocolVersion {
+		return nil, errors.New("local protocol version is below the supported minimum")
+	}
+	public, err := local.Public().MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	payload := []byte{version.Protocol, version.Major, version.Minor}
+	payload = binary.BigEndian.AppendUint16(payload, version.Revision)
+	payload = binary.BigEndian.AppendUint64(payload, timestamp)
+	payload = append(payload, public...)
+	payload = append(payload, 0) // no claimed external surface
+	payload = binary.BigEndian.AppendUint64(payload, planetWorldID)
+	payload = binary.BigEndian.AppendUint64(payload, planetWorldTimestamp)
+	draft, err := Build(packetID, destination.Address(), local.Address(), VerbHello, payload)
+	if err != nil {
+		return nil, err
+	}
+	return ArmorSession(draft, sharedKey, false, false)
+}
+
+func ParseHelloOK(decoded Decoded) (HelloOK, error) {
+	if decoded.Verb != VerbOK || len(decoded.Payload) < 22 ||
+		Verb(decoded.Payload[0]) != VerbHello {
+		return HelloOK{}, errors.New("packet is not a complete HELLO OK")
+	}
+	result := HelloOK{
+		RequestPacketID: binary.BigEndian.Uint64(decoded.Payload[1:9]),
+		Timestamp:       binary.BigEndian.Uint64(decoded.Payload[9:17]),
+		Version: LocalVersion{
+			Protocol: decoded.Payload[17],
+			Major:    decoded.Payload[18],
+			Minor:    decoded.Payload[19],
+			Revision: binary.BigEndian.Uint16(decoded.Payload[20:22]),
+		},
+	}
+	if result.Version.Protocol < MinimumProtocolVersion {
+		return HelloOK{}, errors.New("HELLO OK protocol version is unsupported")
+	}
+	offset := 22
+	if offset < len(decoded.Payload) {
+		address, consumed, err := parseInetAddress(decoded.Payload[offset:])
+		if err != nil {
+			return HelloOK{}, err
+		}
+		result.ExternalSurface = address
+		offset += consumed
+	}
+	if len(decoded.Payload)-offset >= 2 {
+		length := int(binary.BigEndian.Uint16(decoded.Payload[offset : offset+2]))
+		offset += 2
+		if length > len(decoded.Payload)-offset {
+			return HelloOK{}, errors.New("HELLO OK world update is truncated")
+		}
+		result.WorldUpdate = append([]byte(nil), decoded.Payload[offset:offset+length]...)
+	}
+	return result, nil
+}
+
 // AuthenticateHello performs the special bootstrap path: the public identity
 // is read only to derive a candidate key, then the entire HELLO is MAC-checked
 // before any identity or metadata is trusted.

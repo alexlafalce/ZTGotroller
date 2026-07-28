@@ -55,6 +55,10 @@ func NewHandler(
 	}, nil
 }
 
+func (handler *Handler) Registry() *peer.Registry {
+	return handler.peers
+}
+
 // Handle processes one complete UDP datagram and returns complete datagrams to
 // send to the authenticated source endpoint.
 func (handler *Handler) Handle(
