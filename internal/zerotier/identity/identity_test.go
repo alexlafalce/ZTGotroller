@@ -1,12 +1,19 @@
 package identity
 
-import "testing"
+import (
+	"encoding/hex"
+	"testing"
+)
 
 const knownSecret = "8e4df28b72:0:" +
 	"ac3d46abe0c21f3cfe7a6c8d6a85cfcffcb82fbd55af6a4d6350657c68200843" +
 	"fa2e16f9418bbd9702cae365f2af5fb4c420908b803a681d4daef6114d78a2d7:" +
 	"bd8dd6e4ce7022d2f812797a80c6ee8ad180dc4ebf301dec8b06d1be08832bdd" +
 	"d63a2f1cfa7b2c504474c75bdc8898ba476ef92e8e2d0509f8441985171ff16e"
+
+const referenceSignature = "ae40a9650a9a41cbad407e9b6fe2c0f63bcbde09fdff53bfff7a852e41479fe0" +
+	"150057872ae58da6abe7abc27df723c814bbf4c5ebd87b5e56e32daa1f856c079b" +
+	"c20ce84c12a0d91d0f77c8d069eba5cfdbcf3aefd594f267e3d98576aef5ff"
 
 func TestKnown1142IdentityRoundTrip(t *testing.T) {
 	identity, err := Parse(knownSecret)
@@ -90,5 +97,37 @@ func TestRejectsInconsistentBinaryPrivateLength(t *testing.T) {
 	binary[70] = 0
 	if _, err := ParseBinary(binary); err == nil {
 		t.Fatal("expected inconsistent private length to be rejected")
+	}
+}
+
+func TestSignatureMatches1142Reference(t *testing.T) {
+	identity, err := Parse(knownSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := []byte("ZTGotroller cross-language signature vector")
+	signature, err := identity.Sign(message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(signature[:]) != referenceSignature {
+		t.Fatalf("signature mismatch: %x", signature)
+	}
+	if !identity.Public().Verify(message, signature) {
+		t.Fatal("public identity rejected valid signature")
+	}
+	message[0] ^= 1
+	if identity.Verify(message, signature) {
+		t.Fatal("accepted signature for modified message")
+	}
+}
+
+func TestPublicIdentityCannotSign(t *testing.T) {
+	identity, err := Parse(knownSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := identity.Public().Sign([]byte("message")); err == nil {
+		t.Fatal("expected signing without private key to fail")
 	}
 }

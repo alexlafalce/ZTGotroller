@@ -1,6 +1,9 @@
 package identity
 
 import (
+	"crypto/ed25519"
+	"crypto/sha512"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -24,6 +27,8 @@ type Identity struct {
 	privateKey [PrivateKeyLength]byte
 	hasPrivate bool
 }
+
+type Signature [SignatureLength]byte
 
 func Parse(value string) (Identity, error) {
 	fields := strings.Split(value, ":")
@@ -99,6 +104,35 @@ func (identity Identity) Public() Identity {
 	identity.privateKey = [PrivateKeyLength]byte{}
 	identity.hasPrivate = false
 	return identity
+}
+
+func (identity Identity) Sign(message []byte) (Signature, error) {
+	if !identity.hasPrivate {
+		return Signature{}, errors.New("identity has no private key")
+	}
+	seed := identity.privateKey[32:]
+	privateKey := ed25519.NewKeyFromSeed(seed)
+	if subtle.ConstantTimeCompare(privateKey[32:], identity.publicKey[32:]) != 1 {
+		return Signature{}, errors.New("private signing key does not match public identity")
+	}
+	digest := sha512.Sum512(message)
+	edSignature := ed25519.Sign(privateKey, digest[:32])
+	var signature Signature
+	copy(signature[:64], edSignature)
+	copy(signature[64:], digest[:32])
+	return signature, nil
+}
+
+func (identity Identity) Verify(message []byte, signature Signature) bool {
+	digest := sha512.Sum512(message)
+	if subtle.ConstantTimeCompare(signature[64:], digest[:32]) != 1 {
+		return false
+	}
+	return ed25519.Verify(
+		ed25519.PublicKey(identity.publicKey[32:]),
+		digest[:32],
+		signature[:64],
+	)
 }
 
 func (identity Identity) String() string {
