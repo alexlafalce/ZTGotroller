@@ -92,6 +92,26 @@ func TestHandlerHelloAndConfigLifecycle(t *testing.T) {
 	if _, err := networkconfig.ParseSignedChunk(ok.Payload[9:], controllerIdentity.Public()); err != nil {
 		t.Fatal(err)
 	}
+
+	handler.random = bytes.NewReader(bytes.Repeat([]byte{0x5a}, 64))
+	revocations, err := handler.BuildCOMRevocationBroadcast(
+		ctx, network.ID, remoteIdentity.Address(), now.Add(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(revocations) != 1 || revocations[0].Endpoint != remote {
+		t.Fatalf("unexpected revocation destinations: %+v", revocations)
+	}
+	decodedRevocation, err := packet.DearmorSession(revocations[0].Payload, sharedKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decodedRevocation.Verb != packet.VerbNetworkCredentials ||
+		len(decodedRevocation.Payload) != 161 ||
+		decodedRevocation.Payload[6] != 1 {
+		t.Fatalf("unexpected revocation packet: %+v", decodedRevocation)
+	}
 }
 
 func buildHelloDatagram(

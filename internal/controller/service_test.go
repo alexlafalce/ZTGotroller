@@ -81,6 +81,38 @@ func TestAuthorizationRejectsStaleRevision(t *testing.T) {
 	}
 }
 
+func TestDeauthorizationPublishesRevocationEvent(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	service := newTestService(t, func() time.Time { return now })
+	network, err := service.CreateNetwork(ctx, 1, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := service.RegisterMember(ctx, network.ID, "abcdef1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err = service.SetMemberAuthorization(ctx, network.ID, member.NodeID, true, member.Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	service.SetDeauthorizationHandler(func(
+		_ context.Context, gotNetwork domain.NetworkID, gotNode domain.NodeID, threshold time.Time,
+	) {
+		called = gotNetwork == network.ID && gotNode == member.NodeID && threshold.Equal(now)
+	})
+	if _, err := service.SetMemberAuthorization(
+		ctx, network.ID, member.NodeID, false, member.Revision,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("deauthorization event was not published")
+	}
+}
+
 func TestRejectsForeignControllerNetwork(t *testing.T) {
 	service := newTestService(t, time.Now)
 	_, err := service.RegisterMember(context.Background(), "1122334455000001", "abcdef1234")
