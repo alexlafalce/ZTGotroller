@@ -63,10 +63,12 @@ Support:
 - Explicit member authorization.
 - Managed IPv4 assignment.
 - Basic accept/drop rules.
-- JSON file storage.
+- Durable SQLite storage.
 
 The milestone is complete when a `1.14.2` agent and a current MPL agent obtain
 configuration from ZTGotroller and establish peer-to-peer connectivity.
+
+Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
 
 ## Out of scope for the first release
 

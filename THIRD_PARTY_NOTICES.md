@@ -30,9 +30,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-The complete transitive Go module set is pinned in `go.sum`. Release packaging
-must generate and verify notices for all linked transitive dependencies before
-publishing binaries.
+The complete transitive Go module set is pinned in `go.sum`.
 
 ## golang.org/x/crypto
 
@@ -63,3 +61,22 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Linked transitive modules
+
+The release command currently links the following additional modules. Their
+license files were inspected from the exact versions pinned by `go.sum`.
+
+| Module | Version | License |
+| --- | --- | --- |
+| `github.com/dustin/go-humanize` | `v1.0.1` | MIT |
+| `github.com/google/uuid` | `v1.6.0` | BSD-3-Clause |
+| `github.com/remyoudompheng/bigfft` | `v0.0.0-20230129092748-24d4a6f8daec` | BSD-3-Clause |
+| `golang.org/x/sys` | `v0.22.0` | BSD-3-Clause |
+| `modernc.org/libc` | `v1.55.3` | BSD-3-Clause |
+| `modernc.org/mathutil` | `v1.6.0` | BSD-3-Clause |
+| `modernc.org/memory` | `v1.8.0` | BSD-3-Clause |
+
+All linked third-party licenses are permissive and compatible with distribution
+of ZTGotroller under Apache License 2.0. Binary distributions must reproduce
+the applicable notices and disclaimers.

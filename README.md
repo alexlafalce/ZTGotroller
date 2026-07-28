@@ -47,11 +47,11 @@ documentation, and interoperability tests.
 The project has a tested domain model, durable SQLite persistence, an
 authenticated administrative API, ZeroTier-compatible identity and packet
 cryptography, bidirectional HELLO/session handling, root announcements, and
-signed private-network configuration responses. Interoperability with
-an unmodified `1.14.2` agent is validated; the current MPL agent and
-peer-to-peer data path remain release gates.
+signed private-network configuration responses. Interoperability is validated
+between an unmodified `1.14.2` agent and the current MPL `origin/dev` agent,
+including peer-to-peer connectivity.
 
-The first interoperability milestone is:
+The first interoperability milestone is complete:
 
 1. Run one ZeroTier One `1.14.2` agent and one current MPL agent.
 2. Join both agents to a private network managed by ZTGotroller.
