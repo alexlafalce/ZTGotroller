@@ -34,7 +34,7 @@ Implement and validate:
 
 - Identity parsing and compatible signatures.
 - Network IDs.
-- Dictionary encoding.
+- Dictionary encoding. (base fields, routes, managed addresses, and DNS complete)
 - Network configurations.
 - Certificates of Membership.
 - Signed configuration chunks.
