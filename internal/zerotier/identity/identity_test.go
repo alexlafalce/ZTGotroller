@@ -131,3 +131,27 @@ func TestPublicIdentityCannotSign(t *testing.T) {
 		t.Fatal("expected signing without private key to fail")
 	}
 }
+
+func TestKnownIdentityProofOfWork(t *testing.T) {
+	identity, err := Parse(knownSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !identity.LocallyValidate() {
+		t.Fatal("known 1.14.2 identity failed proof-of-work validation")
+	}
+
+	wrongAddress, err := Parse("9e4df28b72" + knownSecret[10:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wrongAddress.LocallyValidate() {
+		t.Fatal("identity with altered address passed validation")
+	}
+
+	alteredKey := identity
+	alteredKey.publicKey[0] ^= 1
+	if alteredKey.LocallyValidate() {
+		t.Fatal("identity with altered public key passed validation")
+	}
+}
