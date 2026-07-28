@@ -77,6 +77,18 @@ Both implementations perform X25519 with the first 32-byte key pair, hash the
 raw secret with SHA-512 and repeatedly hash the previous digest when more than
 64 output bytes are requested.
 
-Identity generation remains unimplemented. It requires a safe persistence
-workflow in addition to a generation vector, because losing or exposing the
-generated secret changes or compromises the controller address.
+Identity generation holds the Ed25519 half fixed while iterating the X25519
+private half until the public key satisfies the address proof of work, matching
+the type-0 generation strategy. Generation accepts a context so callers can
+cancel the intentionally expensive search and accepts an injectable random
+reader for deterministic compatibility tests.
+
+With 64 zero bytes as the injected random source, generation finds the
+address `a7fa8660c2` after seven X25519 candidates. The resulting public
+identity was serialized into the 1.14.2 binary format and accepted by
+`Identity::locallyValidate()` compiled from the 1.14.2 C++ sources.
+
+Safe persistence is a separate workflow. Losing or exposing the generated
+secret changes or compromises the controller address, so generated identities
+must not yet be wired into the server until atomic, permission-checked storage
+is implemented.
