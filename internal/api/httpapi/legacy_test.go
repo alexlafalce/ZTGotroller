@@ -45,6 +45,9 @@ func TestLegacyControllerLifecycle(t *testing.T) {
 	if !ok || len(nwid) != 16 || nwid[:10] != "8056c2e21c" {
 		t.Fatalf("unexpected network ID: %#v", network["nwid"])
 	}
+	if network["revision"] != float64(1) {
+		t.Fatalf("new network revision = %#v, want 1", network["revision"])
+	}
 
 	list := perform(t, api, http.MethodGet, "/controller/network", "")
 	var ids []string
@@ -87,6 +90,33 @@ func TestLegacyControllerLifecycle(t *testing.T) {
 	}
 	if response := perform(t, api, http.MethodDelete, "/controller/network/"+nwid, ""); response.Code != http.StatusOK {
 		t.Fatalf("delete network returned %d: %s", response.Code, response.Body.String())
+	}
+}
+
+func TestLegacyControllerReportsBaselineAPIVersion(t *testing.T) {
+	response := perform(t, newTestAPI(t), http.MethodGet, "/controller", "")
+	var body map[string]any
+	decodeResponse(t, response, &body)
+	if body["apiVersion"] != float64(4) {
+		t.Fatalf("apiVersion = %#v, want 4", body["apiVersion"])
+	}
+}
+
+func TestLegacyAssignmentModeStrings(t *testing.T) {
+	response := perform(t, newTestAPI(t), http.MethodPost, "/controller/network", `{
+		"v4AssignMode":"zt",
+		"v6AssignMode":"rfc4193,6plane"
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("create returned %d: %s", response.Code, response.Body.String())
+	}
+	var body struct {
+		V4 legacyV4AssignMode `json:"v4AssignMode"`
+		V6 legacyV6AssignMode `json:"v6AssignMode"`
+	}
+	decodeResponse(t, response, &body)
+	if !body.V4.ZT || !body.V6.RFC4193 || !body.V6.SixPlane {
+		t.Fatalf("assignment modes were not normalized: %+v", body)
 	}
 }
 

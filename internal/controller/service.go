@@ -52,6 +52,28 @@ func (service *Service) CreateRandomNetwork(ctx context.Context, name string) (d
 	return domain.Network{}, errors.New("unable to allocate network ID")
 }
 
+func (service *Service) CreateRandomNetworkWithUpdate(
+	ctx context.Context,
+	update NetworkUpdate,
+) (domain.Network, error) {
+	for attempt := 0; attempt < 100000; attempt++ {
+		var value [4]byte
+		if _, err := rand.Read(value[:]); err != nil {
+			return domain.Network{}, fmt.Errorf("generate network sequence: %w", err)
+		}
+		sequence := binary.BigEndian.Uint32(value[:]) & 0x00ffffff
+		if sequence == 0 {
+			sequence = 1
+		}
+		network, err := service.CreateNetworkWithUpdate(ctx, sequence, update)
+		if errors.Is(err, store.ErrAlreadyExists) {
+			continue
+		}
+		return network, err
+	}
+	return domain.Network{}, errors.New("unable to allocate network ID")
+}
+
 func New(controllerID domain.NodeID, persistence store.Store, clock Clock) (*Service, error) {
 	if err := controllerID.Validate(); err != nil {
 		return nil, err
@@ -75,6 +97,25 @@ func (service *Service) CreateNetwork(
 	}
 	network := domain.NewNetwork(domain.NewNetworkID(service.controllerID, sequence), service.now())
 	network.Name = name
+	if err := service.store.CreateNetwork(ctx, network); err != nil {
+		return domain.Network{}, fmt.Errorf("create network: %w", err)
+	}
+	return service.store.GetNetwork(ctx, network.ID)
+}
+
+func (service *Service) CreateNetworkWithUpdate(
+	ctx context.Context,
+	sequence uint32,
+	update NetworkUpdate,
+) (domain.Network, error) {
+	if sequence > 0x00ffffff {
+		return domain.Network{}, errors.New("network sequence exceeds 24 bits")
+	}
+	network := domain.NewNetwork(domain.NewNetworkID(service.controllerID, sequence), service.now())
+	service.applyNetworkUpdate(&network, update)
+	if err := network.Validate(); err != nil {
+		return domain.Network{}, fmt.Errorf("configured network: %w", err)
+	}
 	if err := service.store.CreateNetwork(ctx, network); err != nil {
 		return domain.Network{}, fmt.Errorf("create network: %w", err)
 	}

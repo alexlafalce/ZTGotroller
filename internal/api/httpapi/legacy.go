@@ -15,7 +15,7 @@ import (
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/peer"
 )
 
-const legacyControllerAPIVersion = 3
+const legacyControllerAPIVersion = 4
 
 type legacyAPI struct {
 	service *controller.Service
@@ -48,10 +48,39 @@ type legacyV4AssignMode struct {
 	ZT bool `json:"zt"`
 }
 
+func (mode *legacyV4AssignMode) UnmarshalJSON(serialized []byte) error {
+	var legacy string
+	if json.Unmarshal(serialized, &legacy) == nil {
+		mode.ZT = legacy == "zt"
+		return nil
+	}
+	type alias legacyV4AssignMode
+	return json.Unmarshal(serialized, (*alias)(mode))
+}
+
 type legacyV6AssignMode struct {
 	RFC4193  bool `json:"rfc4193"`
 	ZT       bool `json:"zt"`
 	SixPlane bool `json:"6plane"`
+}
+
+func (mode *legacyV6AssignMode) UnmarshalJSON(serialized []byte) error {
+	var legacy string
+	if json.Unmarshal(serialized, &legacy) == nil {
+		for _, value := range strings.Split(legacy, ",") {
+			switch strings.TrimSpace(value) {
+			case "rfc4193":
+				mode.RFC4193 = true
+			case "zt":
+				mode.ZT = true
+			case "6plane":
+				mode.SixPlane = true
+			}
+		}
+		return nil
+	}
+	type alias legacyV6AssignMode
+	return json.Unmarshal(serialized, (*alias)(mode))
 }
 
 type legacyRoute struct {
@@ -187,12 +216,9 @@ func (api *legacyAPI) createNetwork(response http.ResponseWriter, request *http.
 	if patch.Name != nil {
 		name = *patch.Name
 	}
-	network, err := api.service.CreateRandomNetwork(request.Context(), name)
-	if err != nil {
-		writeError(response, err)
-		return
-	}
-	network, err = api.applyNetworkPatch(request, network, patch)
+	base := legacyDefaultNetwork(api.service.ControllerID(), name)
+	update := networkUpdateForPatch(base, patch)
+	network, err := api.service.CreateRandomNetworkWithUpdate(request.Context(), update)
 	if err != nil {
 		writeError(response, err)
 		return
@@ -223,10 +249,10 @@ func (api *legacyAPI) putNetwork(response http.ResponseWriter, request *http.Req
 		if patch.Name != nil {
 			name = *patch.Name
 		}
-		network, err := api.service.CreateRandomNetwork(request.Context(), name)
-		if err == nil {
-			network, err = api.applyNetworkPatch(request, network, patch)
-		}
+		base := legacyDefaultNetwork(api.service.ControllerID(), name)
+		network, err := api.service.CreateRandomNetworkWithUpdate(
+			request.Context(), networkUpdateForPatch(base, patch),
+		)
 		if err != nil {
 			writeError(response, err)
 			return
@@ -253,7 +279,16 @@ func (api *legacyAPI) putNetwork(response http.ResponseWriter, request *http.Req
 		if patch.Name != nil {
 			name = *patch.Name
 		}
-		network, err = api.service.CreateNetwork(request.Context(), uint32(sequence), name)
+		base := legacyDefaultNetwork(api.service.ControllerID(), name)
+		network, err = api.service.CreateNetworkWithUpdate(
+			request.Context(), uint32(sequence), networkUpdateForPatch(base, patch),
+		)
+		if err != nil {
+			writeError(response, err)
+			return
+		}
+		writeJSON(response, http.StatusOK, renderLegacyNetwork(network))
+		return
 	}
 	if err != nil {
 		writeError(response, err)
@@ -467,6 +502,11 @@ func (api *legacyAPI) applyNetworkPatch(
 	network domain.Network,
 	patch legacyNetworkPatch,
 ) (domain.Network, error) {
+	update := networkUpdateForPatch(network, patch)
+	return api.service.UpdateNetwork(request.Context(), network.ID, update, network.Revision)
+}
+
+func networkUpdateForPatch(network domain.Network, patch legacyNetworkPatch) controller.NetworkUpdate {
 	update := controller.NetworkUpdate{
 		Name: network.Name, Private: network.Private, MTU: network.MTU,
 		MulticastLimit: network.MulticastLimit, EnableBroadcast: network.EnableBroadcast,
@@ -535,7 +575,13 @@ func (api *legacyAPI) applyNetworkPatch(
 	if patch.SSOEnabled != nil {
 		update.SSOEnabled = *patch.SSOEnabled
 	}
-	return api.service.UpdateNetwork(request.Context(), network.ID, update, network.Revision)
+	return update
+}
+
+func legacyDefaultNetwork(controllerID domain.NodeID, name string) domain.Network {
+	network := domain.NewNetwork(domain.NewNetworkID(controllerID, 1), time.Now().UTC())
+	network.Name = name
+	return network
 }
 
 func (api *legacyAPI) networkFromPath(

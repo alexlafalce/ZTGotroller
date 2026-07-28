@@ -70,6 +70,18 @@ func (service *Service) UpdateNetwork(
 	if network.Revision != expectedRevision {
 		return domain.Network{}, store.ErrConflict
 	}
+	service.applyNetworkUpdate(&network, update)
+	network.UpdatedAt = service.now().UTC()
+	if err := network.Validate(); err != nil {
+		return domain.Network{}, fmt.Errorf("updated network: %w", err)
+	}
+	if err := service.store.SaveNetwork(ctx, network); err != nil {
+		return domain.Network{}, err
+	}
+	return service.store.GetNetwork(ctx, networkID)
+}
+
+func (service *Service) applyNetworkUpdate(network *domain.Network, update NetworkUpdate) {
 	network.Name = update.Name
 	network.Private = update.Private
 	network.MTU = update.MTU
@@ -87,14 +99,6 @@ func (service *Service) UpdateNetwork(
 	network.RemoteTraceTarget = update.RemoteTraceTarget
 	network.RemoteTraceLevel = update.RemoteTraceLevel
 	network.SSOEnabled = update.SSOEnabled
-	network.UpdatedAt = service.now().UTC()
-	if err := network.Validate(); err != nil {
-		return domain.Network{}, fmt.Errorf("updated network: %w", err)
-	}
-	if err := service.store.SaveNetwork(ctx, network); err != nil {
-		return domain.Network{}, err
-	}
-	return service.store.GetNetwork(ctx, networkID)
 }
 
 func (service *Service) DeleteNetwork(ctx context.Context, networkID domain.NetworkID) error {
