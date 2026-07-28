@@ -31,3 +31,24 @@ Reviewed sources:
   `node/Network.cpp`, `node/IncomingPacket.cpp` and `node/NetworkConfig.hpp`.
 - MPL-2.0 agent snapshot `899352e38405968516bb12a770f0ac02f6058fa8`
   equivalents.
+
+## Signed response chunks
+
+The response body after the `OK` correlation fields is divided into signed
+chunks:
+
+```text
+network ID | uint16 data length | data | flags |
+update ID | uint32 total length | uint32 index |
+signature type | uint16 signature length | signature
+```
+
+Network ID through chunk index are signed using the controller identity. Type
+1 carries the 96-byte ZeroTier Ed25519 signature. The `OK` wrapper contains the
+original verb (`NETWORK_CONFIG_REQUEST`) and request packet ID but is outside
+the chunk signature. Transport authentication protects that wrapper.
+
+Update IDs must be non-zero. Chunk ranges cannot exceed the declared assembled
+length, and an assembled dictionary is limited to less than 1 MiB in this
+implementation. Dictionary content generation is the next layer and is
+deliberately separate from signed framing.
