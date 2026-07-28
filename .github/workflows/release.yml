@@ -36,7 +36,7 @@ jobs:
           go build -trimpath -ldflags="-s -w -buildid=" -o "dist/ztgotroller-${GOOS}-${GOARCH}${suffix}" ./cmd/ztgotroller
           go build -trimpath -ldflags="-s -w -buildid=" -o "dist/ztgotroller-backup-${GOOS}-${GOARCH}${suffix}" ./cmd/ztgotroller-backup
           cd dist
-          sha256sum * > "SHA256SUMS-${GOOS}-${GOARCH}"
+          sha256sum -- ./* > "SHA256SUMS-${GOOS}-${GOARCH}"
       - uses: actions/upload-artifact@v4
         with:
           name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
