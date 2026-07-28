@@ -62,14 +62,14 @@ func TestUDPServerEndToEnd(t *testing.T) {
 	hello, key := buildHelloDatagram(t, controllerIdentity, remoteIdentity)
 	writeUDP(t, client, serverEndpoint, hello)
 	reply := readPacketUDP(t, client, serverEndpoint, clientReassembler)
-	if decoded, err := packet.Dearmor(reply, key); err != nil || decoded.Verb != packet.VerbOK {
+	if decoded, err := packet.DearmorSession(reply, key); err != nil || decoded.Verb != packet.VerbOK {
 		t.Fatalf("invalid socket HELLO reply: %+v, %v", decoded, err)
 	}
 
 	request := buildConfigDatagram(t, controllerIdentity, remoteIdentity, network.ID, key, 2)
 	writeUDP(t, client, serverEndpoint, request)
 	denial := readPacketUDP(t, client, serverEndpoint, clientReassembler)
-	if decoded, err := packet.Dearmor(denial, key); err != nil || decoded.Verb != packet.VerbError {
+	if decoded, err := packet.DearmorSession(denial, key); err != nil || decoded.Verb != packet.VerbError {
 		t.Fatalf("invalid socket denial: %+v, %v", decoded, err)
 	}
 
@@ -102,7 +102,7 @@ func TestUDPServerEndToEnd(t *testing.T) {
 	}
 	writeUDP(t, client, serverEndpoint, request)
 	configReply := readPacketUDP(t, client, serverEndpoint, clientReassembler)
-	decodedConfig, err := packet.Dearmor(configReply, key)
+	decodedConfig, err := packet.DearmorSession(configReply, key)
 	if err != nil {
 		t.Fatal(err)
 	}

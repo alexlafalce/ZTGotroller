@@ -112,8 +112,12 @@ func (handler *Handler) Handle(
 			if err != nil {
 				return nil, err
 			}
-			armored, err := packet.ArmorAndFragment(
-				draft, session.SharedKey, true, packet.DefaultPhysicalMTU,
+			armored, err := packet.ArmorSessionAndFragment(
+				draft,
+				session.SharedKey,
+				true,
+				session.ProtocolVersion >= 12,
+				packet.DefaultPhysicalMTU,
 			)
 			if err != nil {
 				return nil, err

@@ -36,6 +36,10 @@ func ArmorAndFragment(
 	if err != nil {
 		return nil, err
 	}
+	return fragmentArmored(armored, mtu)
+}
+
+func fragmentArmored(armored []byte, mtu int) ([][]byte, error) {
 	if len(armored) <= mtu {
 		return [][]byte{armored}, nil
 	}

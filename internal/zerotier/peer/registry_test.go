@@ -15,11 +15,11 @@ import (
 func TestRegistryLearnsAndAuthenticatesPeer(t *testing.T) {
 	controller := registryIdentity(t, 0x11)
 	remote := registryIdentity(t, 0x22)
-	keyBytes, err := controller.Agree(remote.Public(), 32)
+	keyBytes, err := controller.Agree(remote.Public(), packet.SessionKeyLength)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var key [32]byte
+	var key packet.SessionKey
 	copy(key[:], keyBytes)
 	now := time.Unix(1_700_000_000, 0).UTC()
 	registry := NewRegistry()
@@ -38,7 +38,7 @@ func TestRegistryLearnsAndAuthenticatesPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	armored, err := packet.Armor(draft, key, true)
+	armored, err := packet.ArmorSession(draft, key, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,12 +58,12 @@ func TestRegistryLearnsAndAuthenticatesPeer(t *testing.T) {
 func TestRegistryRejectsUnknownAndTamperedPackets(t *testing.T) {
 	controller := registryIdentity(t, 0x33)
 	remote := registryIdentity(t, 0x44)
-	var key [32]byte
+	var key packet.SessionKey
 	draft, err := packet.Build(1, controller.Address(), remote.Address(), packet.VerbEcho, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	armored, err := packet.Armor(draft, key, true)
+	armored, err := packet.ArmorSession(draft, key, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,11 +88,11 @@ func TestRegistryRejectsUnvalidatedIdentity(t *testing.T) {
 	}
 	registry := NewRegistry()
 	hello := packet.Hello{Identity: remote, ProtocolVersion: 13}
-	if _, err := registry.LearnHello(hello, [32]byte{}, netip.MustParseAddrPort("192.0.2.1:1"), time.Now()); err != nil {
+	if _, err := registry.LearnHello(hello, packet.SessionKey{}, netip.MustParseAddrPort("192.0.2.1:1"), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	hello.Identity = colliding
-	if _, err := registry.LearnHello(hello, [32]byte{}, netip.MustParseAddrPort("192.0.2.2:2"), time.Now()); !errors.Is(err, ErrInvalidIdentity) {
+	if _, err := registry.LearnHello(hello, packet.SessionKey{}, netip.MustParseAddrPort("192.0.2.2:2"), time.Now()); !errors.Is(err, ErrInvalidIdentity) {
 		t.Fatalf("got %v, want invalid identity", err)
 	}
 }

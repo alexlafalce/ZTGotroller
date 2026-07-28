@@ -31,13 +31,13 @@ func TestHelloBootstrapAndReply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	agreed, err := peer.Agree(controller.Public(), 32)
+	agreed, err := peer.Agree(controller.Public(), SessionKeyLength)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var key [32]byte
+	var key SessionKey
 	copy(key[:], agreed)
-	armored, err := Armor(draft, key, false)
+	armored, err := ArmorSession(draft, key, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestHelloBootstrapAndReply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := Dearmor(reply, key)
+	decoded, err := DearmorSession(reply, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,13 +89,13 @@ func TestHelloRejectsTamperedIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	agreed, err := controller.Agree(peer, 32)
+	agreed, err := controller.Agree(peer, SessionKeyLength)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var key [32]byte
+	var key SessionKey
 	copy(key[:], agreed)
-	armored, err := Armor(draft, key, false)
+	armored, err := ArmorSession(draft, key, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}

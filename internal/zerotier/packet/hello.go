@@ -40,47 +40,47 @@ type LocalVersion struct {
 // AuthenticateHello performs the special bootstrap path: the public identity
 // is read only to derive a candidate key, then the entire HELLO is MAC-checked
 // before any identity or metadata is trusted.
-func AuthenticateHello(armored []byte, local identity.Identity) (Hello, [32]byte, error) {
+func AuthenticateHello(armored []byte, local identity.Identity) (Hello, SessionKey, error) {
 	routing, err := ParseRouting(armored)
 	if err != nil {
-		return Hello{}, [32]byte{}, err
+		return Hello{}, SessionKey{}, err
 	}
 	if routing.Cipher != CipherC25519Poly1305Clear {
-		return Hello{}, [32]byte{}, errors.New("initial HELLO must use authenticated clear armor")
+		return Hello{}, SessionKey{}, errors.New("initial HELLO must use authenticated clear armor")
 	}
 	if len(armored) < HeaderLength+helloFixedLength || Verb(armored[27]&0x1f) != VerbHello {
-		return Hello{}, [32]byte{}, errors.New("HELLO is truncated or has the wrong verb")
+		return Hello{}, SessionKey{}, errors.New("HELLO is truncated or has the wrong verb")
 	}
 	identityStart := HeaderLength + 13
 	peer, err := identity.ParseBinary(armored[identityStart : identityStart+identity.PublicBinaryLength])
 	if err != nil {
-		return Hello{}, [32]byte{}, fmt.Errorf("parse HELLO identity: %w", err)
+		return Hello{}, SessionKey{}, fmt.Errorf("parse HELLO identity: %w", err)
 	}
-	agreed, err := local.Agree(peer, 32)
+	agreed, err := local.Agree(peer, SessionKeyLength)
 	if err != nil {
-		return Hello{}, [32]byte{}, fmt.Errorf("derive HELLO key: %w", err)
+		return Hello{}, SessionKey{}, fmt.Errorf("derive HELLO key: %w", err)
 	}
-	var sharedKey [32]byte
+	var sharedKey SessionKey
 	copy(sharedKey[:], agreed)
-	decoded, err := Dearmor(armored, sharedKey)
+	decoded, err := DearmorSession(armored, sharedKey)
 	if err != nil {
-		return Hello{}, [32]byte{}, err
+		return Hello{}, SessionKey{}, err
 	}
 	if decoded.Verb != VerbHello {
-		return Hello{}, [32]byte{}, errors.New("authenticated packet is not HELLO")
+		return Hello{}, SessionKey{}, errors.New("authenticated packet is not HELLO")
 	}
 	if decoded.Routing.Source != peer.Address() {
-		return Hello{}, [32]byte{}, errors.New("HELLO source and identity address differ")
+		return Hello{}, SessionKey{}, errors.New("HELLO source and identity address differ")
 	}
 	if decoded.Routing.Destination != local.Address() {
-		return Hello{}, [32]byte{}, errors.New("HELLO is addressed to another identity")
+		return Hello{}, SessionKey{}, errors.New("HELLO is addressed to another identity")
 	}
 	if !peer.LocallyValidate() {
-		return Hello{}, [32]byte{}, errors.New("HELLO identity failed local proof validation")
+		return Hello{}, SessionKey{}, errors.New("HELLO identity failed local proof validation")
 	}
 	hello, err := parseHelloPayload(decoded, peer)
 	if err != nil {
-		return Hello{}, [32]byte{}, err
+		return Hello{}, SessionKey{}, err
 	}
 	return hello, sharedKey, nil
 }
@@ -126,7 +126,7 @@ func BuildHelloOK(
 	local identity.Identity,
 	observed InetAddress,
 	version LocalVersion,
-	sharedKey [32]byte,
+	sharedKey SessionKey,
 ) ([]byte, error) {
 	if version.Protocol < MinimumProtocolVersion {
 		return nil, errors.New("local protocol version is below the supported minimum")
@@ -147,7 +147,7 @@ func BuildHelloOK(
 	if err != nil {
 		return nil, err
 	}
-	return Armor(draft, sharedKey, true)
+	return Armor(draft, sharedKey.salsaKey(), true)
 }
 
 func parseInetAddress(serialized []byte) (*InetAddress, int, error) {
