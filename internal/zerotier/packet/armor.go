@@ -41,6 +41,10 @@ func Build(packetID uint64, destination, source domain.NodeID, verb Verb, payloa
 // Armor authenticates a packet and optionally encrypts its verb and payload
 // using ZeroTier's C25519/Poly1305/Salsa20/12 suite.
 func Armor(unarmored []byte, sharedKey [32]byte, encrypt bool) ([]byte, error) {
+	return armor(unarmored, sharedKey, encrypt, false)
+}
+
+func armor(unarmored []byte, sharedKey [32]byte, encrypt, extended bool) ([]byte, error) {
 	if len(unarmored) < HeaderLength || len(unarmored) > MaxPacketLength {
 		return nil, errors.New("unarmored packet has invalid length")
 	}
@@ -50,10 +54,13 @@ func Armor(unarmored []byte, sharedKey [32]byte, encrypt bool) ([]byte, error) {
 		cipher = CipherC25519Poly1305Salsa
 	}
 	packet[18] = (packet[18] & 0xc7) | byte(cipher<<3)
-	if encrypt {
-		packet[18] |= FlagExtendedArmor // historical encrypted flag shares bit 0x80
+	if extended {
+		packet[18] |= FlagExtendedArmor
 	} else {
 		packet[18] &^= FlagExtendedArmor
+	}
+	if encrypt {
+		packet[18] |= FlagExtendedArmor // historical encrypted flag shares bit 0x80
 	}
 	key := mangleKey(packet, sharedKey)
 	stream := salsa12Stream(key, packet[:8], 64+len(packet[27:]))

@@ -20,6 +20,8 @@ type Member struct {
 	Authorized               bool         `json:"authorized"`
 	Name                     string       `json:"name,omitempty"`
 	ActiveBridge             bool         `json:"activeBridge"`
+	NetworkRelay             bool         `json:"networkRelay,omitempty"`
+	MulticastReplicator      bool         `json:"multicastReplicator,omitempty"`
 	NoAutoAssign             bool         `json:"noAutoAssignIps"`
 	IPAssignments            []netip.Addr `json:"ipAssignments,omitempty"`
 	Capabilities             []uint32     `json:"capabilities,omitempty"`
@@ -50,6 +52,42 @@ type AgentVersion struct {
 	Minor    int `json:"minor"`
 	Revision int `json:"revision"`
 	Protocol int `json:"protocol"`
+}
+
+// AgentMetadata contains replaceable capabilities reported by an agent in a
+// network configuration request. It is observed state, not administrator-owned
+// member configuration.
+type AgentMetadata struct {
+	NetworkID           NetworkID `json:"networkId"`
+	NodeID              NodeID    `json:"nodeId"`
+	Target              string    `json:"target,omitempty"`
+	Vendor              uint64    `json:"vendor,omitempty"`
+	Protocol            uint64    `json:"protocol,omitempty"`
+	Major               uint64    `json:"major,omitempty"`
+	Minor               uint64    `json:"minor,omitempty"`
+	Revision            uint64    `json:"revision,omitempty"`
+	RulesEngineRevision uint64    `json:"rulesEngineRevision,omitempty"`
+	MaxRules            uint64    `json:"maxRules,omitempty"`
+	MaxCapabilities     uint64    `json:"maxCapabilities,omitempty"`
+	MaxCapabilityRules  uint64    `json:"maxCapabilityRules,omitempty"`
+	MaxTags             uint64    `json:"maxTags,omitempty"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}
+
+func (metadata AgentMetadata) Validate() error {
+	if err := metadata.NetworkID.Validate(); err != nil {
+		return err
+	}
+	if err := metadata.NodeID.Validate(); err != nil {
+		return err
+	}
+	if len(metadata.Target) > 128 {
+		return errors.New("agent target exceeds 128 bytes")
+	}
+	if metadata.UpdatedAt.IsZero() {
+		return errors.New("agent metadata update time is required")
+	}
+	return nil
 }
 
 func NewMember(networkID NetworkID, nodeID NodeID, now time.Time) Member {

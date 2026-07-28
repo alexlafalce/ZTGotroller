@@ -13,6 +13,9 @@ observations:
   capabilities and tag definitions.
 - `Member` stores authorization and other administrator-owned member settings.
 - `MemberStatus` stores online state, last-seen time and agent/protocol versions.
+- `AgentMetadata` stores replaceable, agent-reported platform, version,
+  protocol, rules-engine and capacity information separately from desired
+  member configuration.
 - `Store` defines persistence without selecting a database implementation.
 
 Wire packet encoding, signing, identity management, root/planet/moon management,
@@ -49,6 +52,11 @@ member values when present and numeric network defaults otherwise. Both are
 signed for the recipient and included as `CAP` and `TAG` credentials in the
 network configuration.
 
+Authorized members may be designated as active bridges, multicast replicators,
+or experimental network-specific relays. These roles are encoded as network
+specialists and a role change advances the network revision so every member can
+refresh configuration.
+
 Deauthorization persists the member transition first and then emits a signed
 COM revocation with the transition timestamp as its threshold. The runtime
 transports it in `NETWORK_CREDENTIALS` packets to authenticated members of the
@@ -80,10 +88,11 @@ update when it needs the authoritative revision.
 
 ## SQLite store
 
-`internal/store/sqlite` provides durable embedded persistence. Schema migration
-1 stores versioned network and member documents with indexed identity and
-revision columns. Foreign keys enforce member ownership and cascade member
-deletion with their network. WAL mode and a busy timeout are enabled at open.
+`internal/store/sqlite` provides durable embedded persistence. Database schema
+version 1 stores versioned network and member documents with indexed identity
+and revision columns. Version 2 adds the `agent_metadata` table for observed
+agent state. Foreign keys enforce ownership and cascade member data deletion
+with its network. WAL mode and a busy timeout are enabled at open.
 
 The driver is a CGo-free SQLite implementation so builds retain straightforward
 cross-compilation across its supported operating systems and architectures.

@@ -37,6 +37,13 @@ func TestDurableLifecycle(t *testing.T) {
 	if err := persistence.SaveMember(ctx, stored); !errors.Is(err, store.ErrConflict) {
 		t.Fatalf("got %v, want conflict", err)
 	}
+	metadata := domain.AgentMetadata{
+		NetworkID: network.ID, NodeID: member.NodeID, Target: "linux/arm64",
+		Protocol: 13, Major: 1, Minor: 16, Revision: 2, UpdatedAt: time.Now().UTC(),
+	}
+	if err := persistence.UpsertAgentMetadata(ctx, metadata); err != nil {
+		t.Fatal(err)
+	}
 	if err := persistence.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -48,6 +55,13 @@ func TestDurableLifecycle(t *testing.T) {
 	}
 	if !authorized.Authorized || authorized.Revision != 2 {
 		t.Fatalf("unexpected durable member: %+v", authorized)
+	}
+	storedMetadata, err := reopened.GetAgentMetadata(ctx, network.ID, member.NodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if storedMetadata.Target != "linux/arm64" || storedMetadata.Protocol != 13 {
+		t.Fatalf("unexpected durable agent metadata: %+v", storedMetadata)
 	}
 	persistedNetwork, err := reopened.GetNetwork(ctx, network.ID)
 	if err != nil {
@@ -108,6 +122,42 @@ func TestBackupAndSchemaVersionGuard(t *testing.T) {
 	if future, err := Open(futurePath); err == nil {
 		_ = future.Close()
 		t.Fatal("expected future schema version to be rejected")
+	}
+}
+
+func TestMigratesSchemaOneToAgentMetadataSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema-one.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+CREATE TABLE networks (id TEXT PRIMARY KEY, revision INTEGER NOT NULL, document BLOB NOT NULL);
+CREATE TABLE members (
+  network_id TEXT NOT NULL, node_id TEXT NOT NULL, revision INTEGER NOT NULL,
+  document BLOB NOT NULL, PRIMARY KEY (network_id, node_id),
+  FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+);
+PRAGMA user_version = 1;
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	persistence := openTestStore(t, path)
+	var version int
+	if err := persistence.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != currentSchemaVersion {
+		t.Fatalf("schema version = %d, want %d", version, currentSchemaVersion)
+	}
+	var table string
+	if err := persistence.db.QueryRow(
+		"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'agent_metadata'",
+	).Scan(&table); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -31,4 +31,7 @@ type Store interface {
 	ListMembers(context.Context, domain.NetworkID) ([]domain.Member, error)
 	SaveMember(context.Context, domain.Member) error
 	DeleteMember(context.Context, domain.NetworkID, domain.NodeID, uint64) error
+
+	UpsertAgentMetadata(context.Context, domain.AgentMetadata) error
+	GetAgentMetadata(context.Context, domain.NetworkID, domain.NodeID) (domain.AgentMetadata, error)
 }

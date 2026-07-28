@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"sort"
 	"strconv"
 	"time"
 
@@ -15,10 +16,16 @@ import (
 const (
 	CurrentVersion                = 7
 	DefaultCredentialTimeMaxDelta = 24 * time.Hour
+	MaxNetworkSpecialists         = 512
 	maxDNSServers                 = 4
 
 	flagEnableBroadcast = uint64(0x02)
 	flagEnableNDP       = uint64(0x04)
+
+	specialistActiveBridge        = uint64(0x0000020000000000)
+	specialistMulticastReplicator = uint64(0x0000080000000000)
+	specialistNetworkRelay        = uint64(0x0000100000000000)
+	specialistAddressMask         = uint64(0x000000ffffffffff)
 )
 
 type ConfigInput struct {
@@ -34,6 +41,7 @@ type ConfigInput struct {
 	CertificatesOfOwnership []byte
 	Capabilities            []byte
 	Tags                    []byte
+	NetworkMembers          []domain.Member
 }
 
 func BuildDictionary(input ConfigInput) ([]byte, error) {
@@ -69,6 +77,10 @@ func BuildDictionary(input ConfigInput) ([]byte, error) {
 		return nil, err
 	}
 	rules, err := SerializeRules(input.Network.Rules)
+	if err != nil {
+		return nil, err
+	}
+	specialists, err := serializeSpecialists(input.Network.ID, input.NetworkMembers)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +133,7 @@ func BuildDictionary(input ConfigInput) ([]byte, error) {
 	for _, field := range []struct {
 		key   string
 		value []byte
-	}{{"C", input.CertificateOfMembership}, {"CAP", input.Capabilities}, {"TAG", input.Tags}, {"COO", input.CertificatesOfOwnership}, {"RT", routes}, {"I", staticIPs}, {"R", rules}, {"DNS", dns}} {
+	}{{"C", input.CertificateOfMembership}, {"CAP", input.Capabilities}, {"TAG", input.Tags}, {"COO", input.CertificatesOfOwnership}, {"S", specialists}, {"RT", routes}, {"I", staticIPs}, {"R", rules}, {"DNS", dns}} {
 		if len(field.value) > 0 {
 			if err := dictionary.Add(field.key, field.value); err != nil {
 				return nil, err
@@ -129,6 +141,51 @@ func BuildDictionary(input ConfigInput) ([]byte, error) {
 		}
 	}
 	return dictionary.Bytes(), nil
+}
+
+func serializeSpecialists(networkID domain.NetworkID, members []domain.Member) ([]byte, error) {
+	roles := make(map[domain.NodeID]uint64)
+	for index, member := range members {
+		if member.NetworkID != networkID {
+			return nil, fmt.Errorf("specialist member %d belongs to a different network", index)
+		}
+		if !member.Authorized {
+			continue
+		}
+		var role uint64
+		if member.ActiveBridge {
+			role |= specialistActiveBridge
+		}
+		if member.MulticastReplicator {
+			role |= specialistMulticastReplicator
+		}
+		if member.NetworkRelay {
+			role |= specialistNetworkRelay
+		}
+		if role != 0 {
+			roles[member.NodeID] |= role
+		}
+	}
+	if len(roles) > MaxNetworkSpecialists {
+		return nil, fmt.Errorf(
+			"network has %d specialists, maximum is %d",
+			len(roles), MaxNetworkSpecialists,
+		)
+	}
+	nodeIDs := make([]domain.NodeID, 0, len(roles))
+	for nodeID := range roles {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Slice(nodeIDs, func(i, j int) bool { return nodeIDs[i] < nodeIDs[j] })
+	result := make([]byte, 0, len(nodeIDs)*8)
+	for _, nodeID := range nodeIDs {
+		address, err := strconv.ParseUint(string(nodeID), 16, 64)
+		if err != nil || address > specialistAddressMask {
+			return nil, fmt.Errorf("invalid specialist node ID %q", nodeID)
+		}
+		result = binary.BigEndian.AppendUint64(result, roles[nodeID]|address)
+	}
+	return result, nil
 }
 
 func serializeRoutes(routes []domain.Route) ([]byte, error) {

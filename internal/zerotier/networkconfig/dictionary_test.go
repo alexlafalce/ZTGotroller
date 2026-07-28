@@ -2,6 +2,8 @@ package networkconfig
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
 	"net/netip"
 	"testing"
 	"time"
@@ -138,5 +140,73 @@ func TestBuildDictionaryIncludesDerivedIPv6Assignments(t *testing.T) {
 	}
 	if _, exists := dictionary["I"]; exists {
 		t.Fatal("derived assignments must be suppressed by noAutoAssignIps")
+	}
+}
+
+func TestBuildDictionarySerializesAgent1162Specialists(t *testing.T) {
+	now := time.Now().UTC()
+	networkID, _ := domain.ParseNetworkID("8056c2e21c000001")
+	recipientID, _ := domain.ParseNodeID("abcdef1234")
+	network := domain.NewNetwork(networkID, now)
+	recipient := domain.NewMember(networkID, recipientID, now)
+	bridge := domain.NewMember(networkID, "0000000001", now)
+	bridge.Authorized = true
+	bridge.ActiveBridge = true
+	bridge.NetworkRelay = true
+	replicator := domain.NewMember(networkID, "0000000002", now)
+	replicator.Authorized = true
+	replicator.MulticastReplicator = true
+
+	serialized, err := BuildDictionary(ConfigInput{
+		Network: network, Member: recipient, NetworkMembers: []domain.Member{
+			replicator, bridge,
+		}, IssuedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dictionary, err := ParseDictionary(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	specialists := dictionary["S"]
+	if len(specialists) != 16 {
+		t.Fatalf("specialists length = %d, want 16", len(specialists))
+	}
+	if first := binary.BigEndian.Uint64(specialists[:8]); first !=
+		specialistActiveBridge|specialistNetworkRelay|1 {
+		t.Fatalf("first specialist = %016x", first)
+	}
+	if second := binary.BigEndian.Uint64(specialists[8:]); second !=
+		specialistMulticastReplicator|2 {
+		t.Fatalf("second specialist = %016x", second)
+	}
+}
+
+func TestBuildDictionaryEnforcesAgent1162SpecialistLimit(t *testing.T) {
+	now := time.Now().UTC()
+	networkID, _ := domain.ParseNetworkID("8056c2e21c000001")
+	recipient := domain.NewMember(networkID, "abcdef1234", now)
+	network := domain.NewNetwork(networkID, now)
+	members := make([]domain.Member, MaxNetworkSpecialists+1)
+	for index := range members {
+		nodeID, err := domain.ParseNodeID(fmt.Sprintf("%010x", index+1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		members[index] = domain.NewMember(networkID, nodeID, now)
+		members[index].Authorized = true
+		members[index].ActiveBridge = true
+	}
+	if _, err := BuildDictionary(ConfigInput{
+		Network: network, Member: recipient, NetworkMembers: members[:MaxNetworkSpecialists],
+		IssuedAt: now,
+	}); err != nil {
+		t.Fatalf("512 specialists were rejected: %v", err)
+	}
+	if _, err := BuildDictionary(ConfigInput{
+		Network: network, Member: recipient, NetworkMembers: members, IssuedAt: now,
+	}); err == nil {
+		t.Fatal("513 specialists were accepted")
 	}
 }

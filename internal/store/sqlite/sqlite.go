@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	currentSchemaVersion = 1
+	currentSchemaVersion = 2
 	schema               = `
 CREATE TABLE IF NOT EXISTS networks (
 	id TEXT PRIMARY KEY,
@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS members (
 	document BLOB NOT NULL,
 	PRIMARY KEY (network_id, node_id),
 	FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS agent_metadata (
+	network_id TEXT NOT NULL,
+	node_id TEXT NOT NULL,
+	document BLOB NOT NULL,
+	PRIMARY KEY (network_id, node_id),
+	FOREIGN KEY (network_id, node_id) REFERENCES members(network_id, node_id) ON DELETE CASCADE
 );
 `
 )
@@ -70,14 +77,27 @@ func Open(path string) (*Store, error) {
 			version, currentSchemaVersion,
 		)
 	}
-	if version == 0 {
+	if version < currentSchemaVersion {
 		transaction, err := db.Begin()
 		if err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("begin sqlite migration: %w", err)
 		}
-		if _, err = transaction.Exec(schema); err == nil {
-			_, err = transaction.Exec("PRAGMA user_version = 1")
+		if version == 0 {
+			_, err = transaction.Exec(schema)
+		}
+		if err == nil && version < 2 {
+			_, err = transaction.Exec(`
+CREATE TABLE IF NOT EXISTS agent_metadata (
+	network_id TEXT NOT NULL,
+	node_id TEXT NOT NULL,
+	document BLOB NOT NULL,
+	PRIMARY KEY (network_id, node_id),
+	FOREIGN KEY (network_id, node_id) REFERENCES members(network_id, node_id) ON DELETE CASCADE
+)`)
+		}
+		if err == nil {
+			_, err = transaction.Exec("PRAGMA user_version = 2")
 		}
 		if err != nil {
 			_ = transaction.Rollback()
@@ -314,6 +334,64 @@ func (sqlite *Store) DeleteMember(
 		ctx, sqlite.db, result, err, "members", "network_id = ? AND node_id = ?",
 		networkID, nodeID,
 	)
+}
+
+func (sqlite *Store) UpsertAgentMetadata(
+	ctx context.Context,
+	metadata domain.AgentMetadata,
+) error {
+	if err := metadata.Validate(); err != nil {
+		return err
+	}
+	document, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("encode agent metadata: %w", err)
+	}
+	result, err := sqlite.db.ExecContext(
+		ctx,
+		`INSERT INTO agent_metadata(network_id, node_id, document)
+		 SELECT ?, ?, ? WHERE EXISTS (
+		   SELECT 1 FROM members WHERE network_id = ? AND node_id = ?
+		 )
+		 ON CONFLICT(network_id, node_id) DO UPDATE SET document = excluded.document`,
+		metadata.NetworkID, metadata.NodeID, document,
+		metadata.NetworkID, metadata.NodeID,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert agent metadata: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("inspect agent metadata upsert: %w", err)
+	}
+	if affected == 0 {
+		return store.ErrNotFound
+	}
+	return nil
+}
+
+func (sqlite *Store) GetAgentMetadata(
+	ctx context.Context,
+	networkID domain.NetworkID,
+	nodeID domain.NodeID,
+) (domain.AgentMetadata, error) {
+	var document []byte
+	err := sqlite.db.QueryRowContext(
+		ctx,
+		"SELECT document FROM agent_metadata WHERE network_id = ? AND node_id = ?",
+		networkID, nodeID,
+	).Scan(&document)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.AgentMetadata{}, store.ErrNotFound
+	}
+	if err != nil {
+		return domain.AgentMetadata{}, fmt.Errorf("get agent metadata: %w", err)
+	}
+	var metadata domain.AgentMetadata
+	if err := json.Unmarshal(document, &metadata); err != nil {
+		return domain.AgentMetadata{}, fmt.Errorf("decode agent metadata: %w", err)
+	}
+	return metadata, nil
 }
 
 func creationResult(result sql.Result, err error) error {

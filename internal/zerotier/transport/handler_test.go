@@ -45,7 +45,7 @@ func TestHandlerHelloAndConfigLifecycle(t *testing.T) {
 	handler.random = bytes.NewReader(bytes.Repeat([]byte{0x7a}, 64))
 	remote := netip.MustParseAddrPort("192.0.2.20:40000")
 
-	helloDatagram, sharedKey := buildHelloDatagram(t, controllerIdentity, remoteIdentity)
+	helloDatagram, sharedKey := buildHelloDatagram(t, controllerIdentity, remoteIdentity, false)
 	replies, err := handler.Handle(ctx, helloDatagram, remote)
 	if err != nil {
 		t.Fatal(err)
@@ -114,10 +114,46 @@ func TestHandlerHelloAndConfigLifecycle(t *testing.T) {
 	}
 }
 
+func TestHandlerAcceptsAgent1162EncryptedHello(t *testing.T) {
+	ctx := context.Background()
+	controllerIdentity := transportController(t)
+	remoteIdentity, err := identity.Generate(
+		ctx,
+		bytes.NewReader(bytes.Repeat([]byte{0x73}, identity.PrivateKeyLength)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := controller.New(controllerIdentity.Address(), memory.New(), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewHandler(service, controllerIdentity, peer.NewRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.random = bytes.NewReader(bytes.Repeat([]byte{0x44}, 16))
+	datagram, sharedKey := buildHelloDatagram(t, controllerIdentity, remoteIdentity, true)
+	replies, err := handler.Handle(
+		ctx, datagram, netip.MustParseAddrPort("192.0.2.21:40001"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(replies) != 1 {
+		t.Fatalf("HELLO replies = %d, want 1", len(replies))
+	}
+	decoded, err := packet.DearmorSession(replies[0], sharedKey)
+	if err != nil || decoded.Verb != packet.VerbOK {
+		t.Fatalf("invalid encrypted HELLO response: %+v, %v", decoded, err)
+	}
+}
+
 func buildHelloDatagram(
 	t *testing.T,
 	controllerIdentity identity.Identity,
 	remoteIdentity identity.Identity,
+	extended bool,
 ) ([]byte, packet.SessionKey) {
 	t.Helper()
 	public, err := remoteIdentity.Public().MarshalBinary()
@@ -139,7 +175,12 @@ func buildHelloDatagram(
 	}
 	var key packet.SessionKey
 	copy(key[:], agreed)
-	armored, err := packet.ArmorSession(draft, key, false, false)
+	var armored []byte
+	if extended {
+		armored, err = packet.ArmorExtended(draft, key, controllerIdentity.Public())
+	} else {
+		armored, err = packet.ArmorSession(draft, key, false, false)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

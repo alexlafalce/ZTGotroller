@@ -80,7 +80,8 @@ func (handler *Handler) Handle(
 		return nil, errors.New("datagram is addressed to another controller")
 	}
 	if routing.Cipher == packet.CipherC25519Poly1305Clear &&
-		len(datagram) > 27 && packet.Verb(datagram[27]&0x1f) == packet.VerbHello {
+		(routing.ExtendedArmor ||
+			len(datagram) > 27 && packet.Verb(datagram[27]&0x1f) == packet.VerbHello) {
 		if !handler.hellos.allow(remote.Addr(), handler.now()) {
 			return nil, errors.New("HELLO rate limit exceeded")
 		}
