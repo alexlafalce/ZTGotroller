@@ -32,8 +32,9 @@ The initial controller milestone was closed on July 28, 2026 with:
 - No private planet or moon implementation is included.
 - Peer sessions are memory-resident. After a controller restart, agents must
   perform HELLO again before encrypted requests are accepted.
-- The administrative API is controller-native, not a full clone of the
-  historical controller HTTP API.
+- The compatibility API implements the historical controller network/member
+  contract documented in [LEGACY-CONTROLLER-API.md](LEGACY-CONTROLLER-API.md);
+  unrelated local-node endpoints are not cloned.
 - Clustering, SSO, a web UI, Redis, and PostgreSQL are out of scope.
 
 The source and trademark constraints remain those documented in

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strconv"
 	"time"
 
 	"github.com/alexlafalce/ZTGotroller/internal/domain"
@@ -55,7 +56,7 @@ func BuildDictionary(input ConfigInput) ([]byte, error) {
 		return nil, errors.New("credential time maximum delta cannot be negative")
 	}
 
-	staticIPs, err := serializeStaticIPs(input.Network.Routes, input.Member.IPAssignments)
+	staticIPs, err := serializeStaticIPs(input.Network, input.Member)
 	if err != nil {
 		return nil, err
 	}
@@ -149,11 +150,18 @@ func serializeRoutes(routes []domain.Route) ([]byte, error) {
 	return result.Bytes(), nil
 }
 
-func serializeStaticIPs(routes []domain.Route, assignments []netip.Addr) ([]byte, error) {
+func serializeStaticIPs(network domain.Network, member domain.Member) ([]byte, error) {
 	var result bytes.Buffer
-	for index, address := range assignments {
+	if !member.NoAutoAssign {
+		for _, derived := range derivedIPv6Assignments(network.ID, member.NodeID, network.Assignment) {
+			if err := appendInetAddress(&result, derived.address, derived.prefixBits); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for index, address := range member.IPAssignments {
 		prefixBits := -1
-		for _, route := range routes {
+		for _, route := range network.Routes {
 			if route.Target.Addr().Is4() == address.Is4() && route.Target.Contains(address) && route.Target.Bits() > prefixBits {
 				prefixBits = route.Target.Bits()
 			}
@@ -166,6 +174,49 @@ func serializeStaticIPs(routes []domain.Route, assignments []netip.Addr) ([]byte
 		}
 	}
 	return result.Bytes(), nil
+}
+
+type derivedAssignment struct {
+	address    netip.Addr
+	prefixBits int
+}
+
+func derivedIPv6Assignments(networkID domain.NetworkID, nodeID domain.NodeID, modes domain.AssignmentModes) []derivedAssignment {
+	nwid, err := strconv.ParseUint(string(networkID), 16, 64)
+	if err != nil {
+		return nil
+	}
+	node, err := strconv.ParseUint(string(nodeID), 16, 64)
+	if err != nil {
+		return nil
+	}
+	var result []derivedAssignment
+	if modes.IPv6RFC4193 {
+		var address [16]byte
+		address[0] = 0xfd
+		for index := 0; index < 8; index++ {
+			address[index+1] = byte(nwid >> (56 - (index * 8)))
+		}
+		address[9], address[10] = 0x99, 0x93
+		for index := 0; index < 5; index++ {
+			address[index+11] = byte(node >> (32 - (index * 8)))
+		}
+		result = append(result, derivedAssignment{address: netip.AddrFrom16(address), prefixBits: 88})
+	}
+	if modes.IPv6SixPlane {
+		nwid ^= nwid >> 32
+		var address [16]byte
+		address[0] = 0xfc
+		for index := 0; index < 4; index++ {
+			address[index+1] = byte(nwid >> (24 - (index * 8)))
+		}
+		for index := 0; index < 5; index++ {
+			address[index+5] = byte(node >> (32 - (index * 8)))
+		}
+		address[15] = 1
+		result = append(result, derivedAssignment{address: netip.AddrFrom16(address), prefixBits: 40})
+	}
+	return result
 }
 
 func serializeDNS(config *domain.DNSConfig) ([]byte, error) {

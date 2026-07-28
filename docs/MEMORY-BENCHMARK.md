@@ -39,3 +39,30 @@ and allocator retention remain visible.
 Memory is an operational compatibility goal, not a language contest. A larger
 Go baseline can still be acceptable if it provides safer maintenance and
 predictable scaling, but regressions must be measured and explained.
+
+## Reproducible state-load harness
+
+[`scripts/memory-benchmark.sh`](../scripts/memory-benchmark.sh) loads both
+controllers through their historical HTTP API with the same number of private
+networks and authorized members, waits for a warm-up interval, and samples RSS
+and PSS from `/proc`. It writes the raw time series, per-run peaks, and binary
+sizes as CSV files:
+
+```sh
+go build -trimpath -ldflags='-s -w' -o ./bin/ztgotroller ./cmd/ztgotroller
+ZTGOTROLLER_BIN="$PWD/bin/ztgotroller" \
+ZEROTIER_1142_BIN=/absolute/path/to/zerotier-one-1.14.2 \
+OUTPUT="$PWD/memory-results" \
+./scripts/memory-benchmark.sh
+```
+
+The defaults are 10 networks, 100 members per network, a 10-second warm-up,
+30 seconds of sampling, and five isolated runs. `NETWORKS`,
+`MEMBERS_PER_NETWORK`, `WARMUP_SECONDS`, `SAMPLE_SECONDS`, and `RUNS` can
+override them. The historical binary must be the audited 1.14.2 build and must
+support its local controller API.
+
+The harness measures equivalent persisted controller state. It deliberately
+does not claim equivalent packet load, CPU, Go heap allocations, or GC cycles;
+those require a separate agent-driven lab phase under the release comparison
+protocol above.

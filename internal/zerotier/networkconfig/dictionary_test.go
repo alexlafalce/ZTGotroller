@@ -93,3 +93,50 @@ func TestBuildDictionaryRejectsAssignmentWithoutRoute(t *testing.T) {
 		t.Fatal("expected assignment error")
 	}
 }
+
+func TestBuildDictionaryIncludesDerivedIPv6Assignments(t *testing.T) {
+	now := time.Now().UTC()
+	networkID, _ := domain.ParseNetworkID("8056c2e21c000001")
+	nodeID, _ := domain.ParseNodeID("abcdef1234")
+	network := domain.NewNetwork(networkID, now)
+	network.Assignment.IPv6RFC4193 = true
+	network.Assignment.IPv6SixPlane = true
+	member := domain.NewMember(networkID, nodeID, now)
+
+	serialized, err := BuildDictionary(ConfigInput{Network: network, Member: member, IssuedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dictionary, err := ParseMetadata(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expected bytes.Buffer
+	for _, assignment := range []struct {
+		address string
+		prefix  int
+	}{
+		{"fd80:56c2:e21c:0:199:93ab:cdef:1234", 88},
+		{"fc9c:56c2:e3ab:cdef:1234::1", 40},
+	} {
+		if err := appendInetAddress(&expected, netip.MustParseAddr(assignment.address), assignment.prefix); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !bytes.Equal(dictionary["I"], expected.Bytes()) {
+		t.Fatalf("static IPs = %x, want %x", dictionary["I"], expected.Bytes())
+	}
+
+	member.NoAutoAssign = true
+	serialized, err = BuildDictionary(ConfigInput{Network: network, Member: member, IssuedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dictionary, err = ParseMetadata(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := dictionary["I"]; exists {
+		t.Fatal("derived assignments must be suppressed by noAutoAssignIps")
+	}
+}

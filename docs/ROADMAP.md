@@ -35,6 +35,8 @@ Implement and validate:
 - Identity parsing and compatible signatures.
 - Network IDs.
 - Dictionary encoding. (base fields, routes, managed addresses, and DNS complete)
+- RFC4193 and 6PLANE derived IPv6 assignments with historical prefix semantics.
+  (complete)
 - Network configurations.
 - Certificates of Membership. (issuance, serialization, and verification complete)
 - Certificates of Ownership for assigned IPs. (issuance, serialization, and verification complete)
@@ -92,6 +94,8 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
 - Automate the mixed-version agent compatibility matrix.
 - Benchmark steady-state and loaded memory against the 1.14.2 executable using
   equivalent networks, members, requests, uptime, and platform constraints.
+  (equivalent state-load harness complete; agent-driven load measurements
+  remain)
 
 The project will not duplicate organization management, multi-user
 administration, or web presentation already provided by external clients.
