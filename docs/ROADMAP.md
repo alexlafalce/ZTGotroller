@@ -40,6 +40,7 @@ Implement and validate:
 - Certificates of Ownership for assigned IPs. (issuance, serialization, and verification complete)
 - Basic accept/drop rules. (complete)
 - Signed configuration chunks.
+- Authorized configuration assembly with COM, COO, rules, dictionary, and signed chunks. (complete)
 
 ## Milestone 4: minimal controller
 
