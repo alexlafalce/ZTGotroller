@@ -53,7 +53,7 @@ func TestHandlerHelloAndConfigLifecycle(t *testing.T) {
 	if len(replies) != 1 {
 		t.Fatalf("HELLO replies = %d", len(replies))
 	}
-	helloOK, err := packet.Dearmor(replies[0], sharedKey)
+	helloOK, err := packet.DearmorSession(replies[0], sharedKey)
 	if err != nil || helloOK.Verb != packet.VerbOK {
 		t.Fatalf("invalid HELLO OK: %+v, %v", helloOK, err)
 	}
@@ -63,7 +63,7 @@ func TestHandlerHelloAndConfigLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	denial, err := packet.Dearmor(replies[0], sharedKey)
+	denial, err := packet.DearmorSession(replies[0], sharedKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestHandlerHelloAndConfigLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ok, err := packet.Dearmor(replies[0], sharedKey)
+	ok, err := packet.DearmorSession(replies[0], sharedKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func buildHelloDatagram(
 	t *testing.T,
 	controllerIdentity identity.Identity,
 	remoteIdentity identity.Identity,
-) ([]byte, [32]byte) {
+) ([]byte, packet.SessionKey) {
 	t.Helper()
 	public, err := remoteIdentity.Public().MarshalBinary()
 	if err != nil {
@@ -113,13 +113,13 @@ func buildHelloDatagram(
 	if err != nil {
 		t.Fatal(err)
 	}
-	agreed, err := remoteIdentity.Agree(controllerIdentity.Public(), 32)
+	agreed, err := remoteIdentity.Agree(controllerIdentity.Public(), packet.SessionKeyLength)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var key [32]byte
+	var key packet.SessionKey
 	copy(key[:], agreed)
-	armored, err := packet.Armor(draft, key, false)
+	armored, err := packet.ArmorSession(draft, key, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func buildConfigDatagram(
 	controllerIdentity identity.Identity,
 	remoteIdentity identity.Identity,
 	networkID domain.NetworkID,
-	key [32]byte,
+	key packet.SessionKey,
 	packetID uint64,
 ) []byte {
 	t.Helper()
@@ -148,7 +148,7 @@ func buildConfigDatagram(
 	if err != nil {
 		t.Fatal(err)
 	}
-	armored, err := packet.Armor(draft, key, true)
+	armored, err := packet.ArmorSession(draft, key, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}

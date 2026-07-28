@@ -50,6 +50,7 @@ Implement and validate:
 - Administrative read/update API for routes, DNS, rules, authorization, and member IPs. (complete)
 - Protocol-level outgoing fragmentation below physical MTU. (complete)
 - Bounded, expiring inbound fragment reassembly before authentication. (complete)
+- Protocol 12/13 AES-GMAC-SIV session armor with 48-byte key derivation. (complete)
 
 ## Milestone 4: minimal controller
 

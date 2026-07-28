@@ -20,7 +20,7 @@ var (
 
 type Session struct {
 	Identity        identity.Identity
-	SharedKey       [32]byte
+	SharedKey       packet.SessionKey
 	Endpoint        netip.AddrPort
 	ExternalSurface *packet.InetAddress
 	ProtocolVersion byte
@@ -41,7 +41,7 @@ func NewRegistry() *Registry {
 
 func (registry *Registry) LearnHello(
 	hello packet.Hello,
-	sharedKey [32]byte,
+	sharedKey packet.SessionKey,
 	endpoint netip.AddrPort,
 	now time.Time,
 ) (Session, error) {
@@ -108,7 +108,7 @@ func (registry *Registry) Authenticate(
 	if !ok {
 		return packet.Decoded{}, Session{}, ErrNotFound
 	}
-	decoded, err := packet.Dearmor(armored, session.SharedKey)
+	decoded, err := packet.DearmorSession(armored, session.SharedKey)
 	if err != nil {
 		return packet.Decoded{}, Session{}, err
 	}
