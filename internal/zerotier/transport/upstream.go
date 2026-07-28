@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -76,6 +77,15 @@ type UpstreamManager struct {
 	now        func() time.Time
 	mu         sync.Mutex
 	pending    map[uint64]pendingHello
+	status     map[string]UpstreamStatus
+}
+
+type UpstreamStatus struct {
+	Peer        domain.NodeID `json:"peer"`
+	Endpoint    string        `json:"endpoint"`
+	LastAttempt time.Time     `json:"lastAttempt,omitempty"`
+	LastSuccess time.Time     `json:"lastSuccess,omitempty"`
+	Pending     bool          `json:"pending"`
 }
 
 type pendingHello struct {
@@ -101,7 +111,7 @@ func NewUpstreamManager(
 	return &UpstreamManager{
 		connection: connection, local: local, peers: peers, upstreams: upstreams,
 		interval: interval, random: rand.Reader, now: time.Now,
-		pending: make(map[uint64]pendingHello),
+		pending: make(map[uint64]pendingHello), status: make(map[string]UpstreamStatus),
 	}, nil
 }
 
@@ -152,6 +162,13 @@ func (manager *UpstreamManager) announce() error {
 				peer: upstream.Identity.Address(), endpoint: endpoint,
 				timestamp: timestamp, expires: now.Add(manager.interval),
 			}
+			key := upstreamStatusKey(upstream.Identity.Address(), endpoint)
+			current := manager.status[key]
+			current.Peer = upstream.Identity.Address()
+			current.Endpoint = endpoint.String()
+			current.LastAttempt = now.UTC()
+			current.Pending = true
+			manager.status[key] = current
 			for id, pending := range manager.pending {
 				if !pending.expires.After(now) {
 					delete(manager.pending, id)
@@ -204,7 +221,36 @@ func (manager *UpstreamManager) Handle(datagram []byte, remote netip.AddrPort) (
 		pending.timestamp != reply.Timestamp {
 		return true, errors.New("HELLO OK does not match a pending upstream announcement")
 	}
+	manager.mu.Lock()
+	key := upstreamStatusKey(routing.Source, remote)
+	current := manager.status[key]
+	current.Peer = routing.Source
+	current.Endpoint = remote.String()
+	current.LastSuccess = manager.now().UTC()
+	current.Pending = false
+	manager.status[key] = current
+	manager.mu.Unlock()
 	return true, nil
+}
+
+func (manager *UpstreamManager) Status() []UpstreamStatus {
+	manager.mu.Lock()
+	result := make([]UpstreamStatus, 0, len(manager.status))
+	for _, status := range manager.status {
+		result = append(result, status)
+	}
+	manager.mu.Unlock()
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Peer == result[j].Peer {
+			return result[i].Endpoint < result[j].Endpoint
+		}
+		return result[i].Peer < result[j].Peer
+	})
+	return result
+}
+
+func upstreamStatusKey(peer domain.NodeID, endpoint netip.AddrPort) string {
+	return string(peer) + "@" + endpoint.String()
 }
 
 func randomPacketID(source io.Reader) (uint64, error) {

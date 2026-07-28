@@ -26,6 +26,10 @@ All administrative routes require `Authorization: Bearer <token>`;
 `/healthz` is intentionally public. Binding the HTTP API to a non-loopback
 address should only be done behind TLS or a trusted reverse proxy.
 
+The historical API also accepts `X-ZT1-Auth`. Container deployment,
+health/metrics, backup, restore, migrations, and reproducible release details
+are documented in [OPERATIONS.md](docs/OPERATIONS.md).
+
 On first start, the service generates `identity.secret` with mode `0600`.
 Subsequent starts validate and reuse it. Back up this file securely: losing it
 changes the controller address, while disclosure compromises the controller

@@ -12,7 +12,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const schema = `
+const (
+	currentSchemaVersion = 1
+	schema               = `
 CREATE TABLE IF NOT EXISTS networks (
 	id TEXT PRIMARY KEY,
 	revision INTEGER NOT NULL,
@@ -26,8 +28,8 @@ CREATE TABLE IF NOT EXISTS members (
 	PRIMARY KEY (network_id, node_id),
 	FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
 );
-PRAGMA user_version = 1;
 `
+)
 
 type Store struct {
 	db *sql.DB
@@ -46,11 +48,41 @@ func Open(path string) (*Store, error) {
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA busy_timeout = 5000",
 		"PRAGMA journal_mode = WAL",
-		schema,
 	} {
 		if _, err := db.Exec(statement); err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("initialize sqlite: %w", err)
+		}
+	}
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("read sqlite schema version: %w", err)
+	}
+	if version > currentSchemaVersion {
+		_ = db.Close()
+		return nil, fmt.Errorf(
+			"database schema version %d is newer than supported version %d",
+			version, currentSchemaVersion,
+		)
+	}
+	if version == 0 {
+		transaction, err := db.Begin()
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("begin sqlite migration: %w", err)
+		}
+		if _, err := transaction.Exec(schema); err == nil {
+			_, err = transaction.Exec("PRAGMA user_version = 1")
+		}
+		if err != nil {
+			_ = transaction.Rollback()
+			_ = db.Close()
+			return nil, fmt.Errorf("migrate sqlite schema: %w", err)
+		}
+		if err := transaction.Commit(); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("commit sqlite migration: %w", err)
 		}
 	}
 	return &Store{db: db}, nil
@@ -58,6 +90,18 @@ func Open(path string) (*Store, error) {
 
 func (sqlite *Store) Close() error {
 	return sqlite.db.Close()
+}
+
+// Backup writes a transactionally consistent standalone database. SQLite
+// refuses to overwrite an existing destination.
+func (sqlite *Store) Backup(ctx context.Context, destination string) error {
+	if destination == "" {
+		return errors.New("backup destination is required")
+	}
+	if _, err := sqlite.db.ExecContext(ctx, "VACUUM INTO ?", destination); err != nil {
+		return fmt.Errorf("backup sqlite database: %w", err)
+	}
+	return nil
 }
 
 func (sqlite *Store) CreateNetwork(ctx context.Context, network domain.Network) error {

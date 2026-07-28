@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -73,6 +74,40 @@ func TestDuplicateAndMissingRelationships(t *testing.T) {
 	missing := domain.NewMember("8056c2e21c000002", "abcdef1234", time.Now())
 	if err := persistence.CreateMember(ctx, missing); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("got %v, want not found", err)
+	}
+}
+
+func TestBackupAndSchemaVersionGuard(t *testing.T) {
+	ctx := context.Background()
+	sourcePath := filepath.Join(t.TempDir(), "source.db")
+	backupPath := filepath.Join(t.TempDir(), "backup.db")
+	persistence := openTestStore(t, sourcePath)
+	network := domain.NewNetwork("8056c2e21c000001", time.Now().UTC())
+	if err := persistence.CreateNetwork(ctx, network); err != nil {
+		t.Fatal(err)
+	}
+	if err := persistence.Backup(ctx, backupPath); err != nil {
+		t.Fatal(err)
+	}
+	backup := openTestStore(t, backupPath)
+	if _, err := backup.GetNetwork(ctx, network.ID); err != nil {
+		t.Fatalf("backup does not contain network: %v", err)
+	}
+
+	futurePath := filepath.Join(t.TempDir(), "future.db")
+	db, err := sql.Open("sqlite", futurePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("PRAGMA user_version = 999"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if future, err := Open(futurePath); err == nil {
+		_ = future.Close()
+		t.Fatal("expected future schema version to be rejected")
 	}
 }
 

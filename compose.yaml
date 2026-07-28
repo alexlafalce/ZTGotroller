@@ -1,0 +1,21 @@
+services:
+  controller:
+    build: .
+    restart: unless-stopped
+    environment:
+      ZTGOTROLLER_API_TOKEN: ${ZTGOTROLLER_API_TOKEN:?set ZTGOTROLLER_API_TOKEN}
+    ports:
+      - "9993:9993/udp"
+      - "127.0.0.1:9994:9994/tcp"
+    volumes:
+      - ztgotroller-data:/var/lib/ztgotroller
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  ztgotroller-data:

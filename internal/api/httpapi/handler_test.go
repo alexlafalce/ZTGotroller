@@ -114,6 +114,26 @@ func TestConflictAndInvalidInputResponses(t *testing.T) {
 	}
 }
 
+func TestHealthAndMetricsExposeRuntimeCounts(t *testing.T) {
+	api := newTestAPI(t)
+	perform(t, api, http.MethodPost, "/v1/networks", `{"sequence":1,"name":"test"}`)
+	perform(t, api, http.MethodPost, "/v1/networks/8056c2e21c000001/members/abcdef1234", "")
+
+	health := perform(t, api, http.MethodGet, "/healthz", "")
+	var status map[string]any
+	decodeResponse(t, health, &status)
+	if health.Code != http.StatusOK || status["databaseReady"] != true ||
+		status["networks"] != float64(1) || status["members"] != float64(1) {
+		t.Fatalf("unexpected health: %#v", status)
+	}
+	metrics := perform(t, api, http.MethodGet, "/metrics", "")
+	if metrics.Code != http.StatusOK ||
+		!bytes.Contains(metrics.Body.Bytes(), []byte("ztgotroller_networks 1")) ||
+		!bytes.Contains(metrics.Body.Bytes(), []byte("ztgotroller_members 1")) {
+		t.Fatalf("unexpected metrics: %s", metrics.Body.String())
+	}
+}
+
 func newTestAPI(t *testing.T) http.Handler {
 	t.Helper()
 	service, err := controller.New(
