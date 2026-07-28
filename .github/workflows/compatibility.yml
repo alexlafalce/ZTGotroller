@@ -1,0 +1,40 @@
+name: Real-agent compatibility
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-agent-compatibility
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: [self-hosted, linux, zerotier-interop]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.12"
+          cache: true
+      - name: Build controller
+        run: go build -trimpath -ldflags="-s -w -buildid=" -o "$RUNNER_TEMP/ztgotroller" ./cmd/ztgotroller
+      - name: Run real-agent matrix
+        env:
+          ZTGOTROLLER_BIN: ${{ runner.temp }}/ztgotroller
+          ZEROTIER_1142_BIN: /opt/ztgotroller-lab/zerotier-one-1.14.2
+          ZEROTIER_CURRENT_BIN: /opt/ztgotroller-lab/zerotier-one-current
+          ZT_INTEROP_DRIVER: /opt/ztgotroller-lab/run-case
+          OUTPUT: ${{ runner.temp }}/compatibility-results
+        run: ./scripts/compatibility-matrix.sh
+      - name: Upload compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/compatibility-results
+          if-no-files-found: error
+          retention-days: 90
