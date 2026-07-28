@@ -30,3 +30,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
