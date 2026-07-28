@@ -58,23 +58,28 @@ type TagDefinition struct {
 }
 
 type Network struct {
-	SchemaVersion   int             `json:"schemaVersion"`
-	ID              NetworkID       `json:"id"`
-	Name            string          `json:"name"`
-	Private         bool            `json:"private"`
-	MTU             int             `json:"mtu"`
-	MulticastLimit  int             `json:"multicastLimit"`
-	EnableBroadcast bool            `json:"enableBroadcast"`
-	Assignment      AssignmentModes `json:"assignment"`
-	Routes          []Route         `json:"routes,omitempty"`
-	IPPools         []IPPool        `json:"ipPools,omitempty"`
-	DNS             *DNSConfig      `json:"dns,omitempty"`
-	Rules           []Rule          `json:"rules"`
-	Capabilities    []Capability    `json:"capabilities,omitempty"`
-	Tags            []TagDefinition `json:"tags,omitempty"`
-	CreatedAt       time.Time       `json:"createdAt"`
-	UpdatedAt       time.Time       `json:"updatedAt"`
-	Revision        uint64          `json:"revision"`
+	SchemaVersion     int               `json:"schemaVersion"`
+	ID                NetworkID         `json:"id"`
+	Name              string            `json:"name"`
+	Private           bool              `json:"private"`
+	MTU               int               `json:"mtu"`
+	MulticastLimit    int               `json:"multicastLimit"`
+	EnableBroadcast   bool              `json:"enableBroadcast"`
+	Assignment        AssignmentModes   `json:"assignment"`
+	Routes            []Route           `json:"routes,omitempty"`
+	IPPools           []IPPool          `json:"ipPools,omitempty"`
+	DNS               *DNSConfig        `json:"dns,omitempty"`
+	Rules             []Rule            `json:"rules"`
+	Capabilities      []Capability      `json:"capabilities,omitempty"`
+	Tags              []TagDefinition   `json:"tags,omitempty"`
+	AuthTokens        map[string]uint64 `json:"authTokens,omitempty"`
+	RulesSource       string            `json:"rulesSource,omitempty"`
+	RemoteTraceTarget string            `json:"remoteTraceTarget,omitempty"`
+	RemoteTraceLevel  uint64            `json:"remoteTraceLevel,omitempty"`
+	SSOEnabled        bool              `json:"ssoEnabled,omitempty"`
+	CreatedAt         time.Time         `json:"createdAt"`
+	UpdatedAt         time.Time         `json:"updatedAt"`
+	Revision          uint64            `json:"revision"`
 }
 
 func NewNetwork(id NetworkID, now time.Time) Network {

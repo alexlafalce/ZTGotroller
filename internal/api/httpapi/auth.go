@@ -18,11 +18,14 @@ func RequireBearerToken(next http.Handler, token string) (http.Handler, error) {
 			next.ServeHTTP(response, request)
 			return
 		}
-		scheme, credential, found := strings.Cut(request.Header.Get("Authorization"), " ")
+		credential := request.Header.Get("X-ZT1-Auth")
+		scheme, bearerCredential, found := strings.Cut(request.Header.Get("Authorization"), " ")
+		if credential == "" && found && scheme == "Bearer" {
+			credential = bearerCredential
+		}
 		provided := sha256.Sum256([]byte(credential))
-		if !found || scheme != "Bearer" ||
-			subtle.ConstantTimeCompare(provided[:], expected[:]) != 1 {
-			response.Header().Set("WWW-Authenticate", "Bearer")
+		if subtle.ConstantTimeCompare(provided[:], expected[:]) != 1 {
+			response.Header().Set("WWW-Authenticate", "Bearer, X-ZT1-Auth")
 			writeJSON(response, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
 			return
 		}

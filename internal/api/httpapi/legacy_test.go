@@ -1,0 +1,99 @@
+package httpapi
+
+import (
+	"encoding/json"
+	"net/http"
+	"testing"
+)
+
+func TestLegacyControllerLifecycle(t *testing.T) {
+	api := newTestAPI(t)
+	status := perform(t, api, http.MethodGet, "/status", "")
+	var statusBody map[string]any
+	decodeResponse(t, status, &statusBody)
+	if status.Code != http.StatusOK || statusBody["address"] != "8056c2e21c" {
+		t.Fatalf("unexpected status (%d): %#v", status.Code, statusBody)
+	}
+
+	created := perform(t, api, http.MethodPost, "/controller/network/8056c2e21c______", `{
+		"name":"legacy","private":true,"enableBroadcast":true,"mtu":2800,
+		"multicastLimit":32,"v4AssignMode":{"zt":true},
+		"routes":[{"target":"10.44.0.0/16","via":null}],
+		"ipAssignmentPools":[{"ipRangeStart":"10.44.0.10","ipRangeEnd":"10.44.0.200"}],
+		"dns":{"domain":"home.arpa","servers":["10.44.0.1"]},
+		"rules":[{"type":"ACTION_ACCEPT","not":false,"or":false}],
+		"capabilities":[{"id":1,"default":true,"rules":[{"type":"ACTION_ACCEPT"}]}],
+		"tags":[{"id":7,"default":3}]
+	}`)
+	if created.Code != http.StatusOK {
+		t.Fatalf("create returned %d: %s", created.Code, created.Body.String())
+	}
+	var network map[string]any
+	decodeResponse(t, created, &network)
+	nwid, ok := network["nwid"].(string)
+	if !ok || len(nwid) != 16 || nwid[:10] != "8056c2e21c" {
+		t.Fatalf("unexpected network ID: %#v", network["nwid"])
+	}
+
+	list := perform(t, api, http.MethodGet, "/controller/network", "")
+	var ids []string
+	decodeResponse(t, list, &ids)
+	if len(ids) != 1 || ids[0] != nwid {
+		t.Fatalf("unexpected network list: %#v", ids)
+	}
+
+	memberPath := "/controller/network/" + nwid + "/member/abcdef1234"
+	memberResponse := perform(t, api, http.MethodPost, memberPath, `{
+		"name":"router","authorized":true,"noAutoAssignIps":true,
+		"ipAssignments":["10.44.0.20"],"capabilities":[1,1],"tags":[[7,9]]
+	}`)
+	if memberResponse.Code != http.StatusOK {
+		t.Fatalf("member update returned %d: %s", memberResponse.Code, memberResponse.Body.String())
+	}
+	var member map[string]any
+	decodeResponse(t, memberResponse, &member)
+	if member["authorized"] != true || member["name"] != "router" {
+		t.Fatalf("unexpected member: %#v", member)
+	}
+
+	memberList := perform(t, api, http.MethodGet, "/controller/network/"+nwid+"/member", "")
+	var revisions map[string]uint64
+	decodeResponse(t, memberList, &revisions)
+	if revisions["abcdef1234"] == 0 {
+		t.Fatalf("unexpected member list: %#v", revisions)
+	}
+
+	partial := perform(t, api, http.MethodPost, "/controller/network/"+nwid, `{"name":"renamed"}`)
+	var updated map[string]json.RawMessage
+	decodeResponse(t, partial, &updated)
+	var routes []legacyRoute
+	if partial.Code != http.StatusOK || json.Unmarshal(updated["routes"], &routes) != nil || len(routes) != 1 {
+		t.Fatalf("partial update lost routes: %s", partial.Body.String())
+	}
+
+	if response := perform(t, api, http.MethodDelete, memberPath, ""); response.Code != http.StatusOK {
+		t.Fatalf("delete member returned %d: %s", response.Code, response.Body.String())
+	}
+	if response := perform(t, api, http.MethodDelete, "/controller/network/"+nwid, ""); response.Code != http.StatusOK {
+		t.Fatalf("delete network returned %d: %s", response.Code, response.Body.String())
+	}
+}
+
+func TestLegacyUnstableCollections(t *testing.T) {
+	api := newTestAPI(t)
+	created := perform(t, api, http.MethodPost, "/controller/network", `{"name":"test"}`)
+	var network map[string]any
+	decodeResponse(t, created, &network)
+	nwid := network["nwid"].(string)
+	perform(t, api, http.MethodPost, "/controller/network/"+nwid+"/member/abcdef1234", `{"authorized":true}`)
+
+	for _, path := range []string{
+		"/unstable/controller/network",
+		"/unstable/controller/network/" + nwid + "/member",
+	} {
+		response := perform(t, api, http.MethodGet, path, "")
+		if response.Code != http.StatusOK || !json.Valid(response.Body.Bytes()) {
+			t.Fatalf("%s returned %d: %s", path, response.Code, response.Body.String())
+		}
+	}
+}

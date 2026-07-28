@@ -39,3 +39,17 @@ func TestBearerAuthenticationRequiresConfiguration(t *testing.T) {
 		t.Fatal("expected empty token to be rejected")
 	}
 }
+
+func TestLegacyHeaderAuthentication(t *testing.T) {
+	protected, err := RequireBearerToken(newTestAPI(t), "correct-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/controller/network", nil)
+	request.Header.Set("X-ZT1-Auth", "correct-token")
+	response := httptest.NewRecorder()
+	protected.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("got status %d, want 200", response.Code)
+	}
+}

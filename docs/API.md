@@ -23,6 +23,7 @@ address family. The most-specific containing route supplies the prefix sent to
 the agent. Updates use full replacement semantics for their configurable
 fields and require the current `revision`.
 
-This is an administrative API, not the ZeroTier agent wire protocol and not yet
-a compatibility implementation of the historical controller HTTP API. Those
-interfaces will be separate adapters over the same application service.
+This controller-native API is not the ZeroTier agent wire protocol. A separate
+compatibility adapter for the historical controller HTTP API is documented in
+[LEGACY-CONTROLLER-API.md](LEGACY-CONTROLLER-API.md); both interfaces use the
+same application service and persistent state.
