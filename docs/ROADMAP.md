@@ -37,6 +37,7 @@ Implement and validate:
 - Dictionary encoding. (base fields, routes, managed addresses, and DNS complete)
 - Network configurations.
 - Certificates of Membership. (issuance, serialization, and verification complete)
+- Basic accept/drop rules. (complete)
 - Signed configuration chunks.
 
 ## Milestone 4: minimal controller
