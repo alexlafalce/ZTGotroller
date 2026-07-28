@@ -74,6 +74,7 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
 
 - Provide a compatibility API for established self-hosted management clients,
   derived only from the Apache-2.0 baseline and black-box client tests.
+  (controller network/member contract complete; node telemetry endpoints remain)
 - Validate at least one external management UI, such as
   [ZTNet](https://github.com/sinamics/ztnet), against that adapter.
 - Publish reproducible binaries and container packaging.
@@ -102,4 +103,4 @@ administration, or web presentation already provided by external clients.
 - Redis or PostgreSQL storage.
 - SSO and multi-user administration.
 - A built-in web interface or organization-management layer.
-- Full compatibility with the historical controller API.
+- Full compatibility with unrelated local-node service endpoints.

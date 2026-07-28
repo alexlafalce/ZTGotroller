@@ -14,18 +14,26 @@ type TagValue struct {
 
 // Member contains administrator-owned desired state.
 type Member struct {
-	SchemaVersion int          `json:"schemaVersion"`
-	NetworkID     NetworkID    `json:"networkId"`
-	NodeID        NodeID       `json:"nodeId"`
-	Authorized    bool         `json:"authorized"`
-	ActiveBridge  bool         `json:"activeBridge"`
-	NoAutoAssign  bool         `json:"noAutoAssignIps"`
-	IPAssignments []netip.Addr `json:"ipAssignments,omitempty"`
-	Capabilities  []uint32     `json:"capabilities,omitempty"`
-	Tags          []TagValue   `json:"tags,omitempty"`
-	CreatedAt     time.Time    `json:"createdAt"`
-	UpdatedAt     time.Time    `json:"updatedAt"`
-	Revision      uint64       `json:"revision"`
+	SchemaVersion            int          `json:"schemaVersion"`
+	NetworkID                NetworkID    `json:"networkId"`
+	NodeID                   NodeID       `json:"nodeId"`
+	Authorized               bool         `json:"authorized"`
+	Name                     string       `json:"name,omitempty"`
+	ActiveBridge             bool         `json:"activeBridge"`
+	NoAutoAssign             bool         `json:"noAutoAssignIps"`
+	IPAssignments            []netip.Addr `json:"ipAssignments,omitempty"`
+	Capabilities             []uint32     `json:"capabilities,omitempty"`
+	Tags                     []TagValue   `json:"tags,omitempty"`
+	AuthenticationExpiryTime uint64       `json:"authenticationExpiryTime,omitempty"`
+	AuthenticationURL        string       `json:"authenticationURL,omitempty"`
+	RemoteTraceTarget        string       `json:"remoteTraceTarget,omitempty"`
+	RemoteTraceLevel         uint64       `json:"remoteTraceLevel,omitempty"`
+	SSOExempt                bool         `json:"ssoExempt,omitempty"`
+	LastAuthorizedAt         time.Time    `json:"lastAuthorizedAt,omitempty"`
+	LastDeauthorizedAt       time.Time    `json:"lastDeauthorizedAt,omitempty"`
+	CreatedAt                time.Time    `json:"createdAt"`
+	UpdatedAt                time.Time    `json:"updatedAt"`
+	Revision                 uint64       `json:"revision"`
 }
 
 // MemberStatus contains observed, replaceable runtime information.

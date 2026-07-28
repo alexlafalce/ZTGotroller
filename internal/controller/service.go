@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -16,6 +18,29 @@ type Service struct {
 	controllerID domain.NodeID
 	store        store.Store
 	now          Clock
+}
+
+func (service *Service) ControllerID() domain.NodeID {
+	return service.controllerID
+}
+
+func (service *Service) CreateRandomNetwork(ctx context.Context, name string) (domain.Network, error) {
+	for attempt := 0; attempt < 100000; attempt++ {
+		var value [4]byte
+		if _, err := rand.Read(value[:]); err != nil {
+			return domain.Network{}, fmt.Errorf("generate network sequence: %w", err)
+		}
+		sequence := binary.BigEndian.Uint32(value[:]) & 0x00ffffff
+		if sequence == 0 {
+			sequence = 1
+		}
+		network, err := service.CreateNetwork(ctx, sequence, name)
+		if errors.Is(err, store.ErrAlreadyExists) {
+			continue
+		}
+		return network, err
+	}
+	return domain.Network{}, errors.New("unable to allocate network ID")
 }
 
 func New(controllerID domain.NodeID, persistence store.Store, clock Clock) (*Service, error) {
@@ -99,6 +124,11 @@ func (service *Service) SetMemberAuthorization(
 		return member, nil
 	}
 	member.Authorized = authorized
+	if authorized {
+		member.LastAuthorizedAt = service.now().UTC()
+	} else {
+		member.LastDeauthorizedAt = service.now().UTC()
+	}
 	member.UpdatedAt = service.now().UTC()
 	if err := service.store.SaveMember(ctx, member); err != nil {
 		return domain.Member{}, fmt.Errorf("save member: %w", err)

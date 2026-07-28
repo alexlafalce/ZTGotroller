@@ -45,6 +45,7 @@ func New(service *controller.Service) http.Handler {
 		"PUT /v1/networks/{networkID}/members/{nodeID}/authorization",
 		handler.setAuthorization,
 	)
+	registerLegacyRoutes(handler.mux, service)
 	return handler
 }
 
