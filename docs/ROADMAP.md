@@ -44,6 +44,7 @@ Implement and validate:
 - Authenticated request handling, first-contact registration, authorization errors, and signed replies. (complete)
 - C25519/Poly1305/Salsa20/12 packet construction, authentication, and encryption. (complete)
 - HELLO identity bootstrap, proof validation, shared-key derivation, and encrypted OK response. (complete)
+- Concurrent peer session registry with identity-collision and authenticated-packet handling. (complete)
 
 ## Milestone 4: minimal controller
 
