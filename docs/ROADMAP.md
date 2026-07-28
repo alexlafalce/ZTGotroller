@@ -70,11 +70,36 @@ configuration from ZTGotroller and establish peer-to-peer connectivity.
 
 Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
 
+## Milestone 5: sustainable self-hosting
+
+- Provide a compatibility API for established self-hosted management clients,
+  derived only from the Apache-2.0 baseline and black-box client tests.
+- Validate at least one external management UI, such as
+  [ZTNet](https://github.com/sinamics/ztnet), against that adapter.
+- Publish reproducible binaries and container packaging.
+- Define database and identity backup, restore, and schema migration workflows.
+- Add structured logs, health details, metrics, and upstream status.
+- Automate the mixed-version agent compatibility matrix.
+- Benchmark steady-state and loaded memory against the 1.14.2 executable using
+  equivalent networks, members, requests, uptime, and platform constraints.
+
+The project will not duplicate organization management, multi-user
+administration, or web presentation already provided by external clients.
+
+## Milestone 6: ongoing agent compatibility
+
+- Test each supported MPL agent release without inspecting restricted
+  controller sources or controller-specific changelogs.
+- Derive changes from MPL agent code, public protocol documentation, and
+  authorized black-box observations.
+- Publish a compatibility matrix and regression fixtures for every supported
+  agent line.
+
 ## Out of scope for the first release
 
 - Private planets or moons.
 - Controller clustering.
 - Redis or PostgreSQL storage.
 - SSO and multi-user administration.
-- A web interface.
+- A built-in web interface or organization-management layer.
 - Full compatibility with the historical controller API.

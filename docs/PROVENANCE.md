@@ -28,7 +28,8 @@ Compatibility work for later agents may use:
 - Public ZeroTier protocol and product documentation.
 - Network traces captured from systems the contributor is authorized to test.
 - Independently authored interoperability tests and fixtures.
-- Public issue reports and release notes.
+- Public issue reports and agent release notes describing externally observable
+  behavior.
 
 If expression from an MPL-covered file is copied into this repository, the
 resulting covered file must be identified and handled under MPL 2.0. Prefer
@@ -44,6 +45,9 @@ Do not copy, translate, or adapt:
 - Private ZeroTier repositories or confidential documentation.
 - Material obtained under an agreement that prohibits this use.
 - Decompilations of proprietary binaries.
+- Controller-specific changelogs or release notes used as implementation
+  specifications.
+- Requirements or summaries that reproduce restricted implementation details.
 
 ## Contribution records
 
@@ -67,3 +71,6 @@ The canonical CSV contains 1,799 unique tracked paths, SHA-256 hashes,
 detected and effective license conclusions, evidence, and confidence levels.
 One hundred files were conservatively marked for manual review. Those files
 must not be imported without a separate review.
+
+The operational procedure, contributor declarations, and accidental-exposure
+response are defined in [CLEAN-ROOM-POLICY.md](CLEAN-ROOM-POLICY.md).
