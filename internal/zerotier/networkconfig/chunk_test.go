@@ -60,6 +60,19 @@ func TestWrapOK(t *testing.T) {
 	}
 }
 
+func TestWrapError(t *testing.T) {
+	payload, err := WrapError(0x0102030405060708, "8056c2e21c000001", ErrorAccessDenied)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload[0] != byte(packet.VerbNetworkConfigRequest) ||
+		binary.BigEndian.Uint64(payload[1:9]) != 0x0102030405060708 ||
+		payload[9] != byte(ErrorAccessDenied) ||
+		!bytes.Equal(payload[10:], []byte{0x80, 0x56, 0xc2, 0xe2, 0x1c, 0, 0, 1}) {
+		t.Fatalf("unexpected ERROR payload: %x", payload)
+	}
+}
+
 func TestRejectsInvalidChunkBuild(t *testing.T) {
 	signer := deterministicSigner(t)
 	for _, test := range []struct {

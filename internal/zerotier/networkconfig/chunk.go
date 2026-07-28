@@ -18,6 +18,13 @@ const (
 	chunkFixedOverhead        = 8 + 2 + 1 + 8 + 4 + 4 + 1 + 2 + identity.SignatureLength
 )
 
+type ErrorCode byte
+
+const (
+	ErrorObjectNotFound ErrorCode = 0x03
+	ErrorAccessDenied   ErrorCode = 0x07
+)
+
 type SignedChunk struct {
 	NetworkID     domain.NetworkID
 	Data          []byte
@@ -137,4 +144,20 @@ func WrapOK(requestPacketID uint64, signedChunk []byte) []byte {
 	binary.BigEndian.PutUint64(payload[1:9], requestPacketID)
 	copy(payload[9:], signedChunk)
 	return payload
+}
+
+func WrapError(requestPacketID uint64, networkID domain.NetworkID, code ErrorCode) ([]byte, error) {
+	if err := networkID.Validate(); err != nil {
+		return nil, err
+	}
+	if code != ErrorObjectNotFound && code != ErrorAccessDenied {
+		return nil, fmt.Errorf("unsupported network config error code %d", code)
+	}
+	networkBytes, _ := hex.DecodeString(string(networkID))
+	payload := make([]byte, 1+8+1+8)
+	payload[0] = byte(packet.VerbNetworkConfigRequest)
+	binary.BigEndian.PutUint64(payload[1:9], requestPacketID)
+	payload[9] = byte(code)
+	copy(payload[10:], networkBytes)
+	return payload, nil
 }
