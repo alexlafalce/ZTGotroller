@@ -41,6 +41,7 @@ Implement and validate:
 - Basic accept/drop rules. (complete)
 - Signed configuration chunks.
 - Authorized configuration assembly with COM, COO, rules, dictionary, and signed chunks. (complete)
+- Authenticated request handling, first-contact registration, authorization errors, and signed replies. (complete)
 
 ## Milestone 4: minimal controller
 
