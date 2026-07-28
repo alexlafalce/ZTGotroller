@@ -36,6 +36,11 @@ ZTGotroller is an independent, community-oriented network controller intended
 to interoperate with MPL-licensed ZeroTier agents while preserving the option
 to self-host network management.
 
+The project focuses on the controller and its sustainable compatibility
+surface. It does not aim to build another web interface. Existing self-hosted
+management projects can integrate through a compatibility API as that adapter
+is completed.
+
 The controller implementation will be derived only from the ZeroTier One
 `1.14.2` source snapshot, whose Business Source License declares a change to
 Apache License 2.0 effective on January 1, 2026. Compatibility with newer
@@ -73,7 +78,9 @@ their exact scope.
 - ZeroTier trademarks and logos are not licensed by Apache License 2.0.
 
 See [PROVENANCE.md](docs/PROVENANCE.md) for the complete source policy and
-[the license audit](audit/LICENSE-AUDIT-1.14.2.md) for the baseline findings.
+[the clean-room policy](docs/CLEAN-ROOM-POLICY.md) before contributing.
+The [license audit](audit/LICENSE-AUDIT-1.14.2.md) records the baseline
+findings.
 
 ## License
 
