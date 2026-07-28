@@ -19,7 +19,7 @@ func TestBearerAuthentication(t *testing.T) {
 	}{
 		{name: "missing", path: "/v1/networks", status: http.StatusUnauthorized},
 		{name: "wrong", path: "/v1/networks", header: "Bearer wrong", status: http.StatusUnauthorized},
-		{name: "valid", path: "/v1/networks", header: "Bearer correct-token", status: http.StatusMethodNotAllowed},
+		{name: "valid", path: "/v1/networks", header: "Bearer correct-token", status: http.StatusOK},
 		{name: "health", path: "/healthz", status: http.StatusOK},
 	} {
 		t.Run(test.name, func(t *testing.T) {
