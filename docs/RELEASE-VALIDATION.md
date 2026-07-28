@@ -11,6 +11,10 @@ The initial controller milestone was closed on July 28, 2026 with:
 - mixed-version peer-to-peer ICMP with zero packet loss
 - inspection of every linked Go module license
 
+Future releases must also run the real-agent cases defined in
+[COMPATIBILITY-MATRIX.md](COMPATIBILITY-MATRIX.md) and retain their evidence
+artifact.
+
 ## Security boundary
 
 - The administrative API requires a bearer token. Keep it bound to loopback or

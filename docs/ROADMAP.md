@@ -91,7 +91,8 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
   (complete)
 - Add health details and initial Prometheus metrics. (complete)
 - Add JSON structured logs and upstream attempt/success status. (complete)
-- Automate the mixed-version agent compatibility matrix.
+- Automate the mixed-version agent compatibility matrix. (repository runner
+  and privileged lab-driver contract complete)
 - Benchmark steady-state and loaded memory against the 1.14.2 executable using
   equivalent networks, members, requests, uptime, and platform constraints.
   (equivalent state-load harness complete; agent-driven load measurements
@@ -108,6 +109,10 @@ administration, or web presentation already provided by external clients.
   authorized black-box observations.
 - Publish a compatibility matrix and regression fixtures for every supported
   agent line.
+
+The executable matrix and evidence contract are documented in
+[COMPATIBILITY-MATRIX.md](COMPATIBILITY-MATRIX.md). Each release still requires
+a fresh run on the isolated privileged lab.
 
 ## Out of scope for the first release
 
