@@ -112,11 +112,13 @@ func (handler *Handler) Handle(
 			if err != nil {
 				return nil, err
 			}
-			armored, err := packet.Armor(draft, session.SharedKey, true)
+			armored, err := packet.ArmorAndFragment(
+				draft, session.SharedKey, true, packet.DefaultPhysicalMTU,
+			)
 			if err != nil {
 				return nil, err
 			}
-			datagrams = append(datagrams, armored)
+			datagrams = append(datagrams, armored...)
 		}
 		return datagrams, nil
 	default:
@@ -146,6 +148,10 @@ func (handler *Handler) handleHello(datagram []byte, remote netip.AddrPort) ([][
 	)
 	if err != nil {
 		return nil, err
+	}
+	// HELLO OK is small, but route it through the same MTU enforcement.
+	if len(reply) > packet.DefaultPhysicalMTU {
+		return nil, errors.New("HELLO OK unexpectedly exceeds physical MTU")
 	}
 	return [][]byte{reply}, nil
 }

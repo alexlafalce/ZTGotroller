@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/packet"
 )
@@ -12,13 +13,18 @@ import (
 type UDPServer struct {
 	connection *net.UDPConn
 	handler    *Handler
+	fragments  *reassembler
 }
 
 func NewUDPServer(connection *net.UDPConn, handler *Handler) (*UDPServer, error) {
 	if connection == nil || handler == nil {
 		return nil, errors.New("UDP connection and handler are required")
 	}
-	return &UDPServer{connection: connection, handler: handler}, nil
+	return &UDPServer{
+		connection: connection,
+		handler:    handler,
+		fragments:  newReassembler(),
+	}, nil
 }
 
 func (server *UDPServer) Serve(ctx context.Context) error {
@@ -33,7 +39,10 @@ func (server *UDPServer) Serve(ctx context.Context) error {
 			}
 			return fmt.Errorf("read UDP: %w", err)
 		}
-		datagram := append([]byte(nil), buffer[:length]...)
+		datagram, ready, err := server.fragments.push(buffer[:length], remote, time.Now())
+		if err != nil || !ready {
+			continue
+		}
 		replies, err := server.handler.Handle(ctx, datagram, remote)
 		if err != nil {
 			continue // invalid/untrusted datagrams are intentionally silent
