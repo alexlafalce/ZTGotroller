@@ -11,7 +11,7 @@ ZeroTier agent protocol traffic.
 ```sh
 export ZTGOTROLLER_API_TOKEN='replace-with-a-long-random-token'
 go run ./cmd/ztgotroller \
-  -controller-id 8056c2e21c \
+  -identity ./identity.secret \
   -database ./ztgotroller.db
 ```
 
@@ -19,6 +19,12 @@ The service listens on `127.0.0.1:9994` by default. All administrative routes
 require `Authorization: Bearer <token>`; `/healthz` is intentionally public.
 Binding to a non-loopback address should only be done behind TLS or a trusted
 reverse proxy.
+
+On first start, the service generates `identity.secret` with mode `0600`.
+Subsequent starts validate and reuse it. Back up this file securely: losing it
+changes the controller address, while disclosure compromises the controller
+identity. The service refuses symlinks, public-only identities and secret files
+readable by group or other users.
 
 ZTGotroller is an independent, community-oriented network controller intended
 to interoperate with MPL-licensed ZeroTier agents while preserving the option

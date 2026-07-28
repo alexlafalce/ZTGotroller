@@ -88,7 +88,8 @@ address `a7fa8660c2` after seven X25519 candidates. The resulting public
 identity was serialized into the 1.14.2 binary format and accepted by
 `Identity::locallyValidate()` compiled from the 1.14.2 C++ sources.
 
-Safe persistence is a separate workflow. Losing or exposing the generated
-secret changes or compromises the controller address, so generated identities
-must not yet be wired into the server until atomic, permission-checked storage
-is implemented.
+The server loads or creates `identity.secret` and derives the controller ID
+from it. Installation uses a same-directory temporary file, `fsync`, mode
+`0600` and an atomic hard link that cannot replace an identity created by
+another process. Loading rejects symlinks, public-only files, unsafe
+permissions and invalid proof of work.

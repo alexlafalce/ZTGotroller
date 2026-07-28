@@ -14,8 +14,8 @@ import (
 
 	"github.com/alexlafalce/ZTGotroller/internal/api/httpapi"
 	"github.com/alexlafalce/ZTGotroller/internal/controller"
-	"github.com/alexlafalce/ZTGotroller/internal/domain"
 	sqlitestore "github.com/alexlafalce/ZTGotroller/internal/store/sqlite"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/identity"
 )
 
 func main() {
@@ -28,13 +28,16 @@ func run() error {
 	var (
 		listenAddress = flag.String("listen", "127.0.0.1:9994", "administrative HTTP listen address")
 		databasePath  = flag.String("database", "ztgotroller.db", "SQLite database path")
-		controllerHex = flag.String("controller-id", "", "10-character ZeroTier controller node ID")
+		identityPath  = flag.String("identity", "identity.secret", "controller identity secret path")
 	)
 	flag.Parse()
 
-	controllerID, err := domain.ParseNodeID(*controllerHex)
+	controllerIdentity, created, err := identity.LoadOrCreate(context.Background(), *identityPath)
 	if err != nil {
-		return fmt.Errorf("controller-id: %w", err)
+		return fmt.Errorf("controller identity: %w", err)
+	}
+	if created {
+		log.Printf("generated controller identity %s", controllerIdentity.Address())
 	}
 	apiToken := os.Getenv("ZTGOTROLLER_API_TOKEN")
 	if apiToken == "" {
@@ -46,7 +49,7 @@ func run() error {
 	}
 	defer persistence.Close()
 
-	service, err := controller.New(controllerID, persistence, time.Now)
+	service, err := controller.New(controllerIdentity.Address(), persistence, time.Now)
 	if err != nil {
 		return err
 	}
