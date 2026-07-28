@@ -3,6 +3,60 @@
 Community controller research and implementation for ZeroTier-compatible
 self-hosting.
 
+> [!WARNING]
+> **Beta software.** ZTGotroller is under active development and has not been
+> validated for production, safety-critical, high-availability, or other
+> environments where failure could cause material harm. It may contain defects,
+> security vulnerabilities, incomplete behavior, incompatibilities, and
+> breaking changes, and its use may cause loss of data, loss of connectivity,
+> service interruption, or unintended network exposure. Evaluate it in an
+> isolated environment and maintain tested backups and a recovery path.
+
+## Disclaimer and limitation of liability
+
+Use of this software is entirely at your own risk. To the maximum extent
+permitted by applicable law, the software is provided **"AS IS"** and **"AS
+AVAILABLE," WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND**, whether express,
+implied, statutory, or otherwise. This includes, without limitation, warranties
+of title, non-infringement, merchantability, fitness for a particular purpose,
+accuracy, availability, compatibility, security, reliability, and freedom from
+defects. No representation or guarantee is made that the software will meet
+your requirements, remain compatible with any current or future ZeroTier
+agent, protocol, API, operating system, or third-party integration, or receive
+maintenance, support, security updates, or vulnerability remediation.
+
+To the maximum extent permitted by applicable law, the authors, copyright
+holders, contributors, maintainers, and distributors will not be liable for
+any direct, indirect, incidental, special, exemplary, punitive, or
+consequential damages, or for any loss of data, credentials, traffic, profits,
+revenue, business, goodwill, or use; network or service interruption;
+unauthorized access or disclosure; security breach; corruption or damage to
+systems or devices; recovery costs; or third-party claims arising from or
+related to the software or its use or inability to be used, regardless of the
+theory of liability and even if advised of the possibility of such damages.
+
+Operating a network controller can grant access to private systems and route
+traffic between devices. You are solely responsible for deployment decisions,
+authorization policies, firewalling and segmentation, transport security,
+credential and key protection, updates, monitoring, capacity planning,
+backups, disaster recovery, incident response, regulatory compliance, and
+obtaining all permissions required for the networks, systems, data, and
+third-party services involved. This software is not a substitute for endpoint,
+network, or operational security controls.
+
+Third-party agents, user interfaces, libraries, services, protocols, and
+trademarks remain subject to their own licenses, terms, and policies. Their
+interoperability with this project does not imply affiliation, endorsement, or
+support. You are responsible for determining whether your intended use and
+distribution comply with all applicable licenses, contracts, export controls,
+privacy requirements, and laws.
+
+This notice supplements the warranty disclaimer and limitation of liability in
+the [Apache License 2.0](LICENSE). If this notice conflicts with that license,
+the license controls. Nothing here excludes or limits liability that cannot
+lawfully be excluded or limited. This notice is general information, not legal
+advice; consult qualified counsel for advice about your circumstances.
+
 ## Run the controller
 
 ```sh
