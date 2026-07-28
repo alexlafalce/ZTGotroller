@@ -517,11 +517,7 @@ func (api *legacyAPI) applyNetworkPatch(
 	if patch.Tags != nil {
 		update.Tags = make([]domain.TagDefinition, 0, len(*patch.Tags))
 		for _, tag := range *patch.Tags {
-			value := uint32(0)
-			if tag.Default != nil {
-				value = *tag.Default
-			}
-			update.Tags = append(update.Tags, domain.TagDefinition{ID: tag.ID, Default: value})
+			update.Tags = append(update.Tags, domain.TagDefinition{ID: tag.ID, Default: tag.Default})
 		}
 	}
 	if patch.AuthTokens != nil {

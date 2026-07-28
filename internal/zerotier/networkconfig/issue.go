@@ -21,10 +21,12 @@ type IssueInput struct {
 }
 
 type IssuedConfig struct {
-	Dictionary []byte
-	Chunks     [][]byte
-	COM        CertificateOfMembership
-	COO        *CertificateOfOwnership
+	Dictionary   []byte
+	Chunks       [][]byte
+	COM          CertificateOfMembership
+	COO          *CertificateOfOwnership
+	Capabilities []byte
+	Tags         []byte
 }
 
 // IssueAuthorizedConfig assembles all credentials and signed chunks needed by
@@ -102,6 +104,12 @@ func IssueAuthorizedConfig(input IssueInput) (IssuedConfig, error) {
 			return IssuedConfig{}, fmt.Errorf("serialize COO: %w", err)
 		}
 	}
+	capabilities, tags, err := issuePolicyCredentials(
+		input.Network, input.Member, timestamp, input.Controller,
+	)
+	if err != nil {
+		return IssuedConfig{}, fmt.Errorf("issue policy credentials: %w", err)
+	}
 
 	dictionary, err := BuildDictionary(ConfigInput{
 		Network:                 input.Network,
@@ -111,6 +119,8 @@ func IssueAuthorizedConfig(input IssueInput) (IssuedConfig, error) {
 		CredentialTimeMaxDelta:  input.CredentialDelta,
 		CertificateOfMembership: comBytes,
 		CertificatesOfOwnership: cooBytes,
+		Capabilities:            capabilities,
+		Tags:                    tags,
 	})
 	if err != nil {
 		return IssuedConfig{}, fmt.Errorf("build dictionary: %w", err)
@@ -126,9 +136,11 @@ func IssueAuthorizedConfig(input IssueInput) (IssuedConfig, error) {
 		return IssuedConfig{}, fmt.Errorf("sign config chunks: %w", err)
 	}
 	return IssuedConfig{
-		Dictionary: dictionary,
-		Chunks:     chunks,
-		COM:        com,
-		COO:        coo,
+		Dictionary:   dictionary,
+		Chunks:       chunks,
+		COM:          com,
+		COO:          coo,
+		Capabilities: capabilities,
+		Tags:         tags,
 	}, nil
 }

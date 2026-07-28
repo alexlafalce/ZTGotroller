@@ -53,8 +53,8 @@ type Capability struct {
 }
 
 type TagDefinition struct {
-	ID      uint32 `json:"id"`
-	Default uint32 `json:"default"`
+	ID      uint32  `json:"id"`
+	Default *uint32 `json:"default"`
 }
 
 type Network struct {

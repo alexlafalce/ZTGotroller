@@ -38,7 +38,10 @@ Implement and validate:
 - Network configurations.
 - Certificates of Membership. (issuance, serialization, and verification complete)
 - Certificates of Ownership for assigned IPs. (issuance, serialization, and verification complete)
-- Basic accept/drop rules. (complete)
+- Complete 1.14.2 rule type/length/value serialization, including actions,
+  address/protocol/port matches, tags, characteristics, and integer ranges.
+  (complete)
+- Signed member capabilities and tags, including network defaults. (complete)
 - Signed configuration chunks.
 - Authorized configuration assembly with COM, COO, rules, dictionary, and signed chunks. (complete)
 - Authenticated request handling, first-contact registration, authorization errors, and signed replies. (complete)
