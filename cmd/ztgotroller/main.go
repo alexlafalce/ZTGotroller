@@ -15,6 +15,7 @@ import (
 
 	"github.com/alexlafalce/ZTGotroller/internal/api/httpapi"
 	"github.com/alexlafalce/ZTGotroller/internal/controller"
+	"github.com/alexlafalce/ZTGotroller/internal/domain"
 	sqlitestore "github.com/alexlafalce/ZTGotroller/internal/store/sqlite"
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/identity"
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/peer"
@@ -84,6 +85,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	service.SetDeauthorizationHandler(func(
+		ctx context.Context,
+		networkID domain.NetworkID,
+		nodeID domain.NodeID,
+		threshold time.Time,
+	) {
+		datagrams, err := protocolHandler.BuildCOMRevocationBroadcast(
+			ctx, networkID, nodeID, threshold,
+		)
+		if err != nil {
+			log.Printf("build revocation for %s on %s: %v", nodeID, networkID, err)
+			return
+		}
+		for _, datagram := range datagrams {
+			if _, err := udpConnection.WriteToUDPAddrPort(datagram.Payload, datagram.Endpoint); err != nil {
+				log.Printf("send revocation to %s: %v", datagram.Endpoint, err)
+			}
+		}
+	})
 	protocolServer, err := transport.NewUDPServer(udpConnection, protocolHandler)
 	if err != nil {
 		return err

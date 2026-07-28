@@ -49,6 +49,11 @@ member values when present and numeric network defaults otherwise. Both are
 signed for the recipient and included as `CAP` and `TAG` credentials in the
 network configuration.
 
+Deauthorization persists the member transition first and then emits a signed
+COM revocation with the transition timestamp as its threshold. The runtime
+transports it in `NETWORK_CREDENTIALS` packets to authenticated members of the
+network. Sessions and retransmission state remain replaceable runtime data.
+
 When `ipv4ZeroTier` or `ipv6ZeroTier` is enabled, an authorized member without
 an address in that family receives the first free address from the configured
 pools. Allocation is serialized, ignores addresses outside managed routes, and

@@ -16,10 +16,17 @@ import (
 type Clock func() time.Time
 
 type Service struct {
-	controllerID domain.NodeID
-	store        store.Store
-	now          Clock
-	ipamMu       sync.Mutex
+	controllerID  domain.NodeID
+	store         store.Store
+	now           Clock
+	ipamMu        sync.Mutex
+	onDeauthorize func(context.Context, domain.NetworkID, domain.NodeID, time.Time)
+}
+
+func (service *Service) SetDeauthorizationHandler(
+	handler func(context.Context, domain.NetworkID, domain.NodeID, time.Time),
+) {
+	service.onDeauthorize = handler
 }
 
 func (service *Service) ControllerID() domain.NodeID {
@@ -135,7 +142,11 @@ func (service *Service) SetMemberAuthorization(
 	if err := service.store.SaveMember(ctx, member); err != nil {
 		return domain.Member{}, fmt.Errorf("save member: %w", err)
 	}
-	return service.store.GetMember(ctx, networkID, nodeID)
+	saved, err := service.store.GetMember(ctx, networkID, nodeID)
+	if err == nil && !authorized && service.onDeauthorize != nil {
+		service.onDeauthorize(ctx, networkID, nodeID, member.UpdatedAt)
+	}
+	return saved, err
 }
 
 func (service *Service) validateOwnedNetwork(networkID domain.NetworkID) error {

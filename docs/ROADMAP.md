@@ -42,6 +42,8 @@ Implement and validate:
   address/protocol/port matches, tags, characteristics, and integer ranges.
   (complete)
 - Signed member capabilities and tags, including network defaults. (complete)
+- Signed COM revocations with fast propagation to authenticated network peers
+  when a member is deauthorized. (complete)
 - Signed configuration chunks.
 - Authorized configuration assembly with COM, COO, rules, dictionary, and signed chunks. (complete)
 - Authenticated request handling, first-contact registration, authorization errors, and signed replies. (complete)
