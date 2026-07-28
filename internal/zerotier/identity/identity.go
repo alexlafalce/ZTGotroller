@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/sha512"
 	"crypto/subtle"
@@ -13,12 +14,13 @@ import (
 )
 
 const (
-	TypeC25519         = byte(0)
-	PublicKeyLength    = 64
-	PrivateKeyLength   = 64
-	SignatureLength    = 96
-	PublicBinaryLength = 5 + 1 + PublicKeyLength + 1
-	SecretBinaryLength = PublicBinaryLength + PrivateKeyLength
+	TypeC25519            = byte(0)
+	PublicKeyLength       = 64
+	PrivateKeyLength      = 64
+	SignatureLength       = 96
+	PublicBinaryLength    = 5 + 1 + PublicKeyLength + 1
+	SecretBinaryLength    = PublicBinaryLength + PrivateKeyLength
+	MaxAgreementKeyLength = 4096
 )
 
 type Identity struct {
@@ -133,6 +135,40 @@ func (identity Identity) Verify(message []byte, signature Signature) bool {
 		digest[:32],
 		signature[:64],
 	)
+}
+
+// Agree derives ZeroTier symmetric key material with the Curve25519 halves of
+// two identities. The raw X25519 secret is expanded through repeated SHA-512.
+func (identity Identity) Agree(peer Identity, length int) ([]byte, error) {
+	if !identity.hasPrivate {
+		return nil, errors.New("identity has no private key")
+	}
+	if length <= 0 || length > MaxAgreementKeyLength {
+		return nil, fmt.Errorf("agreement key length must be between 1 and %d", MaxAgreementKeyLength)
+	}
+	curve := ecdh.X25519()
+	privateKey, err := curve.NewPrivateKey(identity.privateKey[:32])
+	if err != nil {
+		return nil, fmt.Errorf("load private agreement key: %w", err)
+	}
+	publicKey, err := curve.NewPublicKey(peer.publicKey[:32])
+	if err != nil {
+		return nil, fmt.Errorf("load public agreement key: %w", err)
+	}
+	raw, err := privateKey.ECDH(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("agree keys: %w", err)
+	}
+	digest := sha512.Sum512(raw)
+	key := make([]byte, length)
+	for offset := 0; offset < length; {
+		copied := copy(key[offset:], digest[:])
+		offset += copied
+		if offset < length {
+			digest = sha512.Sum512(digest[:])
+		}
+	}
+	return key, nil
 }
 
 func (identity Identity) String() string {

@@ -15,6 +15,9 @@ const referenceSignature = "ae40a9650a9a41cbad407e9b6fe2c0f63bcbde09fdff53bfff7a
 	"150057872ae58da6abe7abc27df723c814bbf4c5ebd87b5e56e32daa1f856c079b" +
 	"c20ce84c12a0d91d0f77c8d069eba5cfdbcf3aefd594f267e3d98576aef5ff"
 
+const referenceAgreement = "5e912d05aab6562b1252f6e93f9ef85dd03c5fdf5cf0c0d0014bb21781a1cb08" +
+	"0497c73264833e319f0484b569668d20f0bcfe56d2e5df58a5a6f13b56d56eeb"
+
 func TestKnown1142IdentityRoundTrip(t *testing.T) {
 	identity, err := Parse(knownSecret)
 	if err != nil {
@@ -153,5 +156,35 @@ func TestKnownIdentityProofOfWork(t *testing.T) {
 	alteredKey.publicKey[0] ^= 1
 	if alteredKey.LocallyValidate() {
 		t.Fatal("identity with altered public key passed validation")
+	}
+}
+
+func TestAgreementMatches1142Reference(t *testing.T) {
+	identity, err := Parse(knownSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := identity.Agree(identity.Public(), 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(key) != referenceAgreement {
+		t.Fatalf("agreement mismatch: %x", key)
+	}
+}
+
+func TestAgreementValidation(t *testing.T) {
+	identity, err := Parse(knownSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := identity.Public().Agree(identity, 32); err == nil {
+		t.Fatal("expected agreement without private key to fail")
+	}
+	if _, err := identity.Agree(identity, 0); err == nil {
+		t.Fatal("expected zero key length to fail")
+	}
+	if _, err := identity.Agree(identity, MaxAgreementKeyLength+1); err == nil {
+		t.Fatal("expected excessive key length to fail")
 	}
 }
