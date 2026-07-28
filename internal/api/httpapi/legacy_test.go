@@ -1,9 +1,20 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"net/netip"
 	"testing"
+	"time"
+
+	"github.com/alexlafalce/ZTGotroller/internal/controller"
+	"github.com/alexlafalce/ZTGotroller/internal/store/memory"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/identity"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/packet"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/peer"
 )
 
 func TestLegacyControllerLifecycle(t *testing.T) {
@@ -96,4 +107,65 @@ func TestLegacyUnstableCollections(t *testing.T) {
 			t.Fatalf("%s returned %d: %s", path, response.Code, response.Body.String())
 		}
 	}
+}
+
+func TestLegacyPeerAndMemberRuntimeStatus(t *testing.T) {
+	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
+	service, err := controller.New("8056c2e21c", memory.New(), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	network, err := service.CreateNetwork(context.Background(), 1, "runtime")
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, err := identity.Generate(
+		context.Background(),
+		bytes.NewReader(bytes.Repeat([]byte{0x44}, identity.PrivateKeyLength)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RegisterMember(context.Background(), network.ID, remote.Address()); err != nil {
+		t.Fatal(err)
+	}
+	registry := peer.NewRegistry()
+	if _, err := registry.LearnHello(packet.Hello{
+		Identity: remote.Public(), ProtocolVersion: 13, Major: 1, Minor: 16, Revision: 2,
+	}, packet.SessionKey{}, netip.MustParseAddrPort("198.51.100.10:43210"), now); err != nil {
+		t.Fatal(err)
+	}
+	api := &legacyAPI{service: service, peers: registry, now: func() time.Time { return now.Add(time.Second) }}
+	request := httptestRequestWithValues(
+		http.MethodGet, "/controller/network/x/member/y",
+		map[string]string{"networkID": string(network.ID), "nodeID": string(remote.Address())},
+	)
+	memberResponse := serveRequest(api.getMember, request)
+	var member map[string]any
+	decodeResponse(t, memberResponse, &member)
+	if member["online"] != true || member["vMajor"] != float64(1) ||
+		member["physicalAddress"] != "198.51.100.10:43210" {
+		t.Fatalf("unexpected runtime member: %#v", member)
+	}
+
+	peers := serveRequest(api.listPeers, httptestRequestWithValues(http.MethodGet, "/peer", nil))
+	var peerList []map[string]any
+	decodeResponse(t, peers, &peerList)
+	if len(peerList) != 1 || peerList[0]["address"] != string(remote.Address()) {
+		t.Fatalf("unexpected peers: %#v", peerList)
+	}
+}
+
+func httptestRequestWithValues(method, path string, values map[string]string) *http.Request {
+	request := httptest.NewRequest(method, path, nil)
+	for key, value := range values {
+		request.SetPathValue(key, value)
+	}
+	return request
+}
+
+func serveRequest(handler http.HandlerFunc, request *http.Request) *httptest.ResponseRecorder {
+	response := httptest.NewRecorder()
+	handler(response, request)
+	return response
 }
