@@ -13,7 +13,7 @@ import (
 
 const (
 	ChunkSignatureTypeEd25519 = 1
-	DefaultMaxChunkData       = 44_000
+	DefaultMaxChunkData       = packet.MaxPacketLength - (packet.HeaderLength + 256)
 	MaxConfigDictionary       = 1 << 20
 	chunkFixedOverhead        = 8 + 2 + 1 + 8 + 4 + 4 + 1 + 2 + identity.SignatureLength
 )
