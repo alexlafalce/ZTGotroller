@@ -33,6 +33,10 @@ func (service *Service) ControllerID() domain.NodeID {
 	return service.controllerID
 }
 
+func (service *Service) Ping(ctx context.Context) error {
+	return service.store.Ping(ctx)
+}
+
 func (service *Service) CreateRandomNetwork(ctx context.Context, name string) (domain.Network, error) {
 	for attempt := 0; attempt < 100000; attempt++ {
 		var value [4]byte

@@ -68,8 +68,7 @@ func NewWithRuntime(
 }
 
 func (handler *Handler) health(response http.ResponseWriter, request *http.Request) {
-	networks, members, peerCount, err := handler.runtimeCounts(request)
-	if err != nil {
+	if err := handler.service.Ping(request.Context()); err != nil {
 		writeJSON(response, http.StatusServiceUnavailable, map[string]any{
 			"status": "unavailable", "databaseReady": false, "error": err.Error(),
 		})
@@ -78,7 +77,6 @@ func (handler *Handler) health(response http.ResponseWriter, request *http.Reque
 	result := map[string]any{
 		"status": "ok", "databaseReady": true,
 		"controllerAddress": handler.service.ControllerID(),
-		"networks":          networks, "members": members, "peers": peerCount,
 	}
 	if handler.upstreams != nil {
 		result["upstreams"] = handler.upstreams.Status()

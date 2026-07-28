@@ -19,14 +19,12 @@ filesystem, and keeps the database and controller identity in the named
 
 ## Health and metrics
 
-`GET /healthz` is public and verifies that persistence can list every network
-and its members. It reports controller address plus network, member, and
-authenticated-peer counts. When upstream discovery is configured it also
-reports each root endpoint's last attempt, last successful authenticated
-HELLO, and whether an announcement is pending.
+`GET /healthz` is public and performs a constant-cost persistence readiness
+check. It reports the controller address and, when configured, upstream status
+without enumerating networks, members, or peers.
 
 `GET /metrics` uses the Prometheus text format and requires the configured API
-token. Initial gauges cover persistence availability and aggregate network,
+token. Its gauges cover persistence availability and aggregate network,
 member, and peer counts.
 
 Application logs are one-line JSON records suitable for journald, Loki, or

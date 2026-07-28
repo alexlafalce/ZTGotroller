@@ -45,3 +45,48 @@ func TestReassemblerAcceptsOutOfOrderFragments(t *testing.T) {
 		}
 	}
 }
+
+func TestReassemblerBoundsSlotsBytesAndDuplicates(t *testing.T) {
+	reassembler := newReassembler()
+	now := time.Now()
+	endpoint := netip.MustParseAddrPort("192.0.2.1:9993")
+	fragment := make([]byte, packet.FragmentLength+1)
+	fragment[13] = 0xff
+	fragment[14] = 0x21 // two total fragments, fragment one
+	for slot := 0; slot < maxReassemblySlots; slot++ {
+		fragment[7] = byte(slot + 1)
+		if _, _, err := reassembler.push(fragment, endpoint, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fragment[7] = 0xff
+	if _, _, err := reassembler.push(fragment, endpoint, now); err == nil {
+		t.Fatal("expected slot capacity error")
+	}
+
+	reassembler = newReassembler()
+	fragment[7] = 1
+	if _, _, err := reassembler.push(fragment, endpoint, now); err != nil {
+		t.Fatal(err)
+	}
+	partial := reassembler.partial[reassemblyKey{endpoint: endpoint, packetID: 1}]
+	before := partial.bytes
+	if _, _, err := reassembler.push(fragment, endpoint, now); err != nil {
+		t.Fatal(err)
+	}
+	if partial.bytes != before {
+		t.Fatal("duplicate fragment consumed additional byte budget")
+	}
+
+	reassembler = newReassembler()
+	fragment[14] = 0x31
+	if _, _, err := reassembler.push(fragment, endpoint, now); err != nil {
+		t.Fatal(err)
+	}
+	key := reassemblyKey{endpoint: endpoint, packetID: 1}
+	reassembler.partial[key].bytes = packet.MaxPacketLength
+	fragment[14] = 0x32
+	if _, _, err := reassembler.push(fragment, endpoint, now); err == nil {
+		t.Fatal("expected byte budget error")
+	}
+}

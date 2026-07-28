@@ -35,6 +35,25 @@ func NewUDPServer(connection *net.UDPConn, handler *Handler) (*UDPServer, error)
 func (server *UDPServer) Serve(ctx context.Context) error {
 	stop := context.AfterFunc(ctx, func() { _ = server.connection.Close() })
 	defer stop()
+	pruneCtx, cancelPrune := context.WithCancel(ctx)
+	pruneDone := make(chan struct{})
+	go func() {
+		defer close(pruneDone)
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pruneCtx.Done():
+				return
+			case now := <-ticker.C:
+				server.handler.Registry().Prune(now)
+			}
+		}
+	}()
+	defer func() {
+		cancelPrune()
+		<-pruneDone
+	}()
 	buffer := make([]byte, packet.MaxPacketLength)
 	for {
 		length, remote, err := server.connection.ReadFromUDPAddrPort(buffer)

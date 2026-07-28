@@ -114,7 +114,7 @@ func TestConflictAndInvalidInputResponses(t *testing.T) {
 	}
 }
 
-func TestHealthAndMetricsExposeRuntimeCounts(t *testing.T) {
+func TestHealthIsConstantAndMetricsExposeRuntimeCounts(t *testing.T) {
 	api := newTestAPI(t)
 	perform(t, api, http.MethodPost, "/v1/networks", `{"sequence":1,"name":"test"}`)
 	perform(t, api, http.MethodPost, "/v1/networks/8056c2e21c000001/members/abcdef1234", "")
@@ -122,9 +122,11 @@ func TestHealthAndMetricsExposeRuntimeCounts(t *testing.T) {
 	health := perform(t, api, http.MethodGet, "/healthz", "")
 	var status map[string]any
 	decodeResponse(t, health, &status)
-	if health.Code != http.StatusOK || status["databaseReady"] != true ||
-		status["networks"] != float64(1) || status["members"] != float64(1) {
+	if health.Code != http.StatusOK || status["databaseReady"] != true {
 		t.Fatalf("unexpected health: %#v", status)
+	}
+	if _, exists := status["networks"]; exists {
+		t.Fatal("public health response must not enumerate controller state")
 	}
 	metrics := perform(t, api, http.MethodGet, "/metrics", "")
 	if metrics.Code != http.StatusOK ||

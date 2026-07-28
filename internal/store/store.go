@@ -19,6 +19,7 @@ var (
 // next one. Delete operations require the current revision. Callers obtain the
 // resulting revision with a subsequent Get.
 type Store interface {
+	Ping(context.Context) error
 	CreateNetwork(context.Context, domain.Network) error
 	GetNetwork(context.Context, domain.NetworkID) (domain.Network, error)
 	ListNetworks(context.Context) ([]domain.Network, error)

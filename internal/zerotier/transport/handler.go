@@ -143,7 +143,7 @@ func (handler *Handler) handleHello(datagram []byte, remote netip.AddrPort) ([][
 	if err != nil {
 		return nil, err
 	}
-	if _, err := handler.peers.LearnHello(hello, sharedKey, remote, handler.now()); err != nil {
+	if _, err := handler.peers.LearnValidatedHello(hello, sharedKey, remote, handler.now()); err != nil {
 		return nil, err
 	}
 	packetID, err := handler.packetID()
