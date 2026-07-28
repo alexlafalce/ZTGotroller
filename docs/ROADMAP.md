@@ -83,7 +83,9 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
   derived only from the Apache-2.0 baseline and black-box client tests.
   (controller network/member contract and peer telemetry complete)
 - Validate at least one external management UI, such as
-  [ZTNet](https://github.com/sinamics/ztnet), against that adapter.
+  [ZTNet](https://github.com/sinamics/ztnet), against that adapter. (current
+  ZTNet client lifecycle complete; see
+  [ZTNET-VALIDATION.md](ZTNET-VALIDATION.md))
 - Allocate unique IPv4/IPv6 addresses from configured pools when the
   corresponding ZeroTier assignment mode is enabled. (complete)
 - Publish reproducible binaries and container packaging. (complete)
