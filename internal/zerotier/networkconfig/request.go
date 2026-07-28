@@ -69,6 +69,20 @@ func ParseMetadata(serialized []byte) (Metadata, error) {
 	if len(serialized) > MaxMetadataLength {
 		return nil, fmt.Errorf("metadata length %d exceeds %d", len(serialized), MaxMetadataLength)
 	}
+	return parseDictionary(serialized)
+}
+
+// ParseDictionary decodes a complete network configuration dictionary. Unlike
+// request metadata, configurations may contain signed credentials and can use
+// the full DictionaryBuilder capacity.
+func ParseDictionary(serialized []byte) (Metadata, error) {
+	if len(serialized) > MaxDictionaryLength {
+		return nil, fmt.Errorf("dictionary length %d exceeds %d", len(serialized), MaxDictionaryLength)
+	}
+	return parseDictionary(serialized)
+}
+
+func parseDictionary(serialized []byte) (Metadata, error) {
 	if bytes.IndexByte(serialized, 0) >= 0 {
 		return nil, errors.New("metadata contains an unescaped null byte")
 	}

@@ -38,10 +38,16 @@ The defaults intentionally reproduce the 1.14.2 controller:
 Network IDs contain the 40-bit controller node ID followed by a 24-bit sequence.
 Node IDs and network IDs use canonical lowercase hexadecimal.
 
-Rules preserve their type plus JSON parameters until the protocol adapter has a
-complete typed mapping for every rule supported by contemporary agents. This
-keeps the persistence schema extensible without claiming wire compatibility
-prematurely.
+Rules preserve their historical type plus JSON parameters. The protocol
+adapter validates and serializes the complete rule catalog supported by the
+1.14.2 baseline. Unknown future rule types remain rejected instead of being
+silently converted to empty fields.
+
+Capabilities reference their rules by definition and are issued only to
+members that list the capability, plus definitions marked as default. Tags use
+member values when present and numeric network defaults otherwise. Both are
+signed for the recipient and included as `CAP` and `TAG` credentials in the
+network configuration.
 
 When `ipv4ZeroTier` or `ipv6ZeroTier` is enabled, an authorized member without
 an address in that family receives the first free address from the configured

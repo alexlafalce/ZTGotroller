@@ -18,6 +18,11 @@ func TestIssueAuthorizedConfig(t *testing.T) {
 	network := domain.NewNetwork(networkID, now)
 	network.Name = "private"
 	network.Routes = []domain.Route{{Target: netip.MustParsePrefix("10.10.0.0/16")}}
+	tagDefault := uint32(1)
+	network.Capabilities = []domain.Capability{{
+		ID: 1, Default: true, Rules: []domain.Rule{{Type: "ACTION_ACCEPT"}},
+	}}
+	network.Tags = []domain.TagDefinition{{ID: 1, Default: &tagDefault}}
 	member := domain.NewMember(networkID, controller.Address(), now)
 	member.Authorized = true
 	member.IPAssignments = []netip.Addr{netip.MustParseAddr("10.10.0.2")}
@@ -42,11 +47,11 @@ func TestIssueAuthorizedConfig(t *testing.T) {
 	if err := issued.COO.Verify(controller.Public()); err != nil {
 		t.Fatal(err)
 	}
-	dictionary, err := ParseMetadata(issued.Dictionary)
+	dictionary, err := ParseDictionary(issued.Dictionary)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"C", "COO", "RT", "I", "R", "DNS"} {
+	for _, key := range []string{"C", "CAP", "TAG", "COO", "RT", "I", "R", "DNS"} {
 		if len(dictionary[key]) == 0 {
 			t.Errorf("dictionary is missing %s", key)
 		}
