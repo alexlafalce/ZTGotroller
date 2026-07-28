@@ -58,7 +58,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	handler, err := httpapi.RequireBearerToken(httpapi.New(service), apiToken)
+	peerRegistry := peer.NewRegistry()
+	handler, err := httpapi.RequireBearerToken(httpapi.NewWithPeers(service, peerRegistry), apiToken)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func run() error {
 		return fmt.Errorf("listen UDP: %w", err)
 	}
 	defer udpConnection.Close()
-	protocolHandler, err := transport.NewHandler(service, controllerIdentity, peer.NewRegistry())
+	protocolHandler, err := transport.NewHandler(service, controllerIdentity, peerRegistry)
 	if err != nil {
 		return err
 	}

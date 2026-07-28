@@ -74,7 +74,7 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
 
 - Provide a compatibility API for established self-hosted management clients,
   derived only from the Apache-2.0 baseline and black-box client tests.
-  (controller network/member contract complete; node telemetry endpoints remain)
+  (controller network/member contract and peer telemetry complete)
 - Validate at least one external management UI, such as
   [ZTNet](https://github.com/sinamics/ztnet), against that adapter.
 - Allocate unique IPv4/IPv6 addresses from configured pools when the

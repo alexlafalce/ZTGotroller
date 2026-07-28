@@ -12,12 +12,15 @@ import (
 	"github.com/alexlafalce/ZTGotroller/internal/controller"
 	"github.com/alexlafalce/ZTGotroller/internal/domain"
 	"github.com/alexlafalce/ZTGotroller/internal/store"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/peer"
 )
 
 const legacyControllerAPIVersion = 3
 
 type legacyAPI struct {
 	service *controller.Service
+	peers   *peer.Registry
+	now     func() time.Time
 }
 
 type legacyNetworkPatch struct {
@@ -87,8 +90,8 @@ type legacyMemberPatch struct {
 	SSOExempt                *bool         `json:"ssoExempt"`
 }
 
-func registerLegacyRoutes(mux *http.ServeMux, service *controller.Service) {
-	api := &legacyAPI{service: service}
+func registerLegacyRoutes(mux *http.ServeMux, service *controller.Service, peers *peer.Registry) {
+	api := &legacyAPI{service: service, peers: peers, now: time.Now}
 	mux.HandleFunc("GET /status", api.status)
 	mux.HandleFunc("GET /controller", api.controllerStatus)
 	mux.HandleFunc("GET /controller/network", api.listNetworks)
@@ -105,6 +108,8 @@ func registerLegacyRoutes(mux *http.ServeMux, service *controller.Service) {
 	mux.HandleFunc("POST /controller/network/{networkID}/member/{nodeID}", api.putMember)
 	mux.HandleFunc("PUT /controller/network/{networkID}/member/{nodeID}", api.putMember)
 	mux.HandleFunc("DELETE /controller/network/{networkID}/member/{nodeID}", api.deleteMember)
+	mux.HandleFunc("GET /peer", api.listPeers)
+	mux.HandleFunc("GET /peer/{nodeID}", api.getPeer)
 }
 
 func (api *legacyAPI) status(response http.ResponseWriter, _ *http.Request) {
@@ -304,7 +309,7 @@ func (api *legacyAPI) listMembersDetailed(response http.ResponseWriter, request 
 	data := make([]map[string]any, 0, len(members))
 	authorized := 0
 	for _, member := range members {
-		data = append(data, renderLegacyMember(member))
+		data = append(data, api.renderLegacyMember(member))
 		if member.Authorized {
 			authorized++
 		}
@@ -320,7 +325,7 @@ func (api *legacyAPI) getMember(response http.ResponseWriter, request *http.Requ
 	if !ok {
 		return
 	}
-	writeJSON(response, http.StatusOK, renderLegacyMember(member))
+	writeJSON(response, http.StatusOK, api.renderLegacyMember(member))
 }
 
 func (api *legacyAPI) putMember(response http.ResponseWriter, request *http.Request) {
@@ -395,7 +400,7 @@ func (api *legacyAPI) putMember(response http.ResponseWriter, request *http.Requ
 			return
 		}
 	}
-	writeJSON(response, http.StatusOK, renderLegacyMember(member))
+	writeJSON(response, http.StatusOK, api.renderLegacyMember(member))
 }
 
 func (api *legacyAPI) deleteMember(response http.ResponseWriter, request *http.Request) {
@@ -407,7 +412,54 @@ func (api *legacyAPI) deleteMember(response http.ResponseWriter, request *http.R
 		writeError(response, err)
 		return
 	}
-	writeJSON(response, http.StatusOK, renderLegacyMember(member))
+	writeJSON(response, http.StatusOK, api.renderLegacyMember(member))
+}
+
+func (api *legacyAPI) listPeers(response http.ResponseWriter, _ *http.Request) {
+	if api.peers == nil {
+		writeJSON(response, http.StatusOK, []any{})
+		return
+	}
+	sessions := api.peers.List()
+	result := make([]map[string]any, 0, len(sessions))
+	for _, session := range sessions {
+		result = append(result, api.renderPeer(session))
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (api *legacyAPI) getPeer(response http.ResponseWriter, request *http.Request) {
+	nodeID, ok := legacyNodeID(response, request.PathValue("nodeID"))
+	if !ok {
+		return
+	}
+	if api.peers == nil {
+		writeJSON(response, http.StatusNotFound, errorResponse{Error: "peer not found"})
+		return
+	}
+	session, err := api.peers.Get(nodeID)
+	if err != nil {
+		writeJSON(response, http.StatusNotFound, errorResponse{Error: "peer not found"})
+		return
+	}
+	writeJSON(response, http.StatusOK, api.renderPeer(session))
+}
+
+func (api *legacyAPI) renderPeer(session peer.Session) map[string]any {
+	active := api.now().Sub(session.LastSeen) <= 2*time.Minute
+	path := map[string]any{
+		"active": active, "address": session.Endpoint.String(), "expired": !active,
+		"lastReceive": session.LastSeen.UnixMilli(), "lastSend": int64(0),
+		"preferred": true, "trustedPathId": uint64(0),
+	}
+	return map[string]any{
+		"address": session.Identity.Address(), "isBonded": false, "latency": -1,
+		"paths": []map[string]any{path}, "role": "LEAF",
+		"version": strconv.Itoa(int(session.Major)) + "." +
+			strconv.Itoa(int(session.Minor)) + "." + strconv.Itoa(int(session.Revision)),
+		"versionMajor": int(session.Major), "versionMinor": int(session.Minor),
+		"versionRev": int(session.Revision), "physicalAddress": session.Endpoint.String(),
+	}
 }
 
 func (api *legacyAPI) applyNetworkPatch(
@@ -602,7 +654,7 @@ func renderLegacyNetwork(network domain.Network) map[string]any {
 	}
 }
 
-func renderLegacyMember(member domain.Member) map[string]any {
+func (api *legacyAPI) renderLegacyMember(member domain.Member) map[string]any {
 	ips := make([]string, 0, len(member.IPAssignments))
 	for _, address := range member.IPAssignments {
 		ips = append(ips, address.String())
@@ -611,7 +663,7 @@ func renderLegacyMember(member domain.Member) map[string]any {
 	for _, tag := range member.Tags {
 		tags = append(tags, [2]uint32{tag.ID, tag.Value})
 	}
-	return map[string]any{
+	result := map[string]any{
 		"id": string(member.NodeID), "address": string(member.NodeID),
 		"nwid": string(member.NetworkID), "name": member.Name,
 		"authorized": member.Authorized, "activeBridge": member.ActiveBridge,
@@ -631,6 +683,23 @@ func renderLegacyMember(member domain.Member) map[string]any {
 		"vMajor": 0, "vMinor": 0, "vRev": 0, "vProto": 0,
 		"lastAuthorizedCredential": nil, "lastAuthorizedCredentialType": "",
 	}
+	if api.peers != nil {
+		if session, err := api.peers.Get(member.NodeID); err == nil {
+			result["online"] = api.now().Sub(session.LastSeen) <= 2*time.Minute
+			result["lastSeen"] = session.LastSeen.UnixMilli()
+			result["physicalAddress"] = session.Endpoint.String()
+			result["physicalAddr"] = session.Endpoint.String()
+			result["vMajor"] = int(session.Major)
+			result["vMinor"] = int(session.Minor)
+			result["vRev"] = int(session.Revision)
+			result["vProto"] = int(session.ProtocolVersion)
+			result["clientVersionMajor"] = int(session.Major)
+			result["clientVersionMinor"] = int(session.Minor)
+			result["clientVersionRev"] = int(session.Revision)
+			result["clientVersionProtocol"] = int(session.ProtocolVersion)
+		}
+	}
+	return result
 }
 
 func unixMilliOrZero(value time.Time) int64 {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"sort"
 	"sync"
 	"time"
 
@@ -115,6 +116,19 @@ func (registry *Registry) Get(nodeID domain.NodeID) (Session, error) {
 		return Session{}, ErrNotFound
 	}
 	return cloneSession(session), nil
+}
+
+func (registry *Registry) List() []Session {
+	registry.mu.RLock()
+	sessions := make([]Session, 0, len(registry.sessions))
+	for _, session := range registry.sessions {
+		sessions = append(sessions, cloneSession(session))
+	}
+	registry.mu.RUnlock()
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].Identity.Address() < sessions[j].Identity.Address()
+	})
+	return sessions
 }
 
 func (registry *Registry) Authenticate(

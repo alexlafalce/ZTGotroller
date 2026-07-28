@@ -9,6 +9,7 @@ import (
 	"github.com/alexlafalce/ZTGotroller/internal/controller"
 	"github.com/alexlafalce/ZTGotroller/internal/domain"
 	"github.com/alexlafalce/ZTGotroller/internal/store"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/peer"
 )
 
 type Handler struct {
@@ -17,6 +18,10 @@ type Handler struct {
 }
 
 func New(service *controller.Service) http.Handler {
+	return NewWithPeers(service, nil)
+}
+
+func NewWithPeers(service *controller.Service, peers *peer.Registry) http.Handler {
 	handler := &Handler{service: service, mux: http.NewServeMux()}
 	handler.mux.HandleFunc("GET /healthz", func(response http.ResponseWriter, _ *http.Request) {
 		writeJSON(response, http.StatusOK, map[string]string{"status": "ok"})
@@ -45,7 +50,7 @@ func New(service *controller.Service) http.Handler {
 		"PUT /v1/networks/{networkID}/members/{nodeID}/authorization",
 		handler.setAuthorization,
 	)
-	registerLegacyRoutes(handler.mux, service)
+	registerLegacyRoutes(handler.mux, service, peers)
 	return handler
 }
 

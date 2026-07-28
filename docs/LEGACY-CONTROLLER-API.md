@@ -32,6 +32,8 @@ The configured `ZTGOTROLLER_API_TOKEN` is accepted through either:
 | `DELETE` | `/controller/network/{nwid}/member/{node}` | Delete and return a member |
 | `GET` | `/unstable/controller/network` | Networks with aggregate member metadata |
 | `GET` | `/unstable/controller/network/{nwid}/member` | Members with aggregate authorization metadata |
+| `GET` | `/peer` | Runtime peers learned through authenticated HELLO traffic |
+| `GET` | `/peer/{node}` | Runtime details and physical path for one peer |
 
 The adapter accepts unknown JSON properties, applies partial-update semantics,
 and renders legacy names such as `nwid`, `v4AssignMode`,
@@ -40,10 +42,10 @@ IP pools are discarded in the same spirit as the reference controller.
 
 ## Compatibility boundary
 
-This contract covers controller network and member administration. General
-ZeroTier node endpoints such as `/peer` describe the local node transport,
-rather than controller configuration, and will be backed by the Go runtime
-telemetry work.
+Member responses combine durable administrative state with replaceable runtime
+state from the authenticated peer registry. They expose last-seen time, agent
+and protocol versions, observed physical endpoint, and a two-minute online
+window. `/peer` uses that same registry and does not persist session keys.
 
 The source of truth for effective network state is ZTGotroller. Management
 clients send JSON over this API; ZTGotroller persists the normalized model and
