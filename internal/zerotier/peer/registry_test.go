@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/alexlafalce/ZTGotroller/internal/domain"
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/identity"
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/packet"
 )
@@ -94,6 +96,47 @@ func TestRegistryRejectsUnvalidatedIdentity(t *testing.T) {
 	hello.Identity = colliding
 	if _, err := registry.LearnHello(hello, packet.SessionKey{}, netip.MustParseAddrPort("192.0.2.2:2"), time.Now()); !errors.Is(err, ErrInvalidIdentity) {
 		t.Fatalf("got %v, want invalid identity", err)
+	}
+}
+
+func TestRegistryPrunesLearnedSessionsButKeepsConfiguredPeers(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0).UTC()
+	learnedID, _ := domain.ParseNodeID("abcdef1234")
+	configuredID, _ := domain.ParseNodeID("123456789a")
+	registry := NewRegistry()
+	registry.sessions[learnedID] = Session{LastSeen: now}
+	registry.sessions[configuredID] = Session{LastSeen: now, configured: true}
+
+	if removed := registry.Prune(now.Add(sessionIdleTTL)); removed != 1 {
+		t.Fatalf("removed %d sessions, want 1", removed)
+	}
+	if _, exists := registry.sessions[learnedID]; exists {
+		t.Fatal("inactive learned session was retained")
+	}
+	if _, exists := registry.sessions[configuredID]; !exists {
+		t.Fatal("configured session was pruned")
+	}
+}
+
+func TestRegistryRejectsNewSessionAtCapacity(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0).UTC()
+	remote := registryIdentity(t, 0x77).Public()
+	registry := NewRegistry()
+	for index := 0; index < maxRegistrySessions; index++ {
+		nodeID, err := domain.ParseNodeID(fmt.Sprintf("%010x", index+1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		registry.sessions[nodeID] = Session{LastSeen: now}
+	}
+	_, err := registry.LearnValidatedHello(
+		packet.Hello{Identity: remote, ProtocolVersion: 13},
+		packet.SessionKey{},
+		netip.MustParseAddrPort("192.0.2.1:9993"),
+		now,
+	)
+	if err == nil {
+		t.Fatal("expected peer capacity error")
 	}
 }
 

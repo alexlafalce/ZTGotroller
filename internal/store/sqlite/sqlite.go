@@ -35,6 +35,10 @@ type Store struct {
 	db *sql.DB
 }
 
+func (sqlite *Store) Ping(ctx context.Context) error {
+	return sqlite.db.PingContext(ctx)
+}
+
 func Open(path string) (*Store, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -72,7 +76,7 @@ func Open(path string) (*Store, error) {
 			_ = db.Close()
 			return nil, fmt.Errorf("begin sqlite migration: %w", err)
 		}
-		if _, err := transaction.Exec(schema); err == nil {
+		if _, err = transaction.Exec(schema); err == nil {
 			_, err = transaction.Exec("PRAGMA user_version = 1")
 		}
 		if err != nil {

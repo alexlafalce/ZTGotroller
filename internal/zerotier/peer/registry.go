@@ -19,6 +19,12 @@ var (
 	ErrIdentityCollision = errors.New("peer identity collision")
 )
 
+const (
+	sessionIdleTTL      = 10 * time.Minute
+	sessionPruneEvery   = time.Minute
+	maxRegistrySessions = 16384
+)
+
 type Session struct {
 	Identity        identity.Identity
 	SharedKey       packet.SessionKey
@@ -29,11 +35,13 @@ type Session struct {
 	Minor           byte
 	Revision        uint16
 	LastSeen        time.Time
+	configured      bool
 }
 
 type Registry struct {
-	mu       sync.RWMutex
-	sessions map[domain.NodeID]Session
+	mu        sync.RWMutex
+	sessions  map[domain.NodeID]Session
+	lastPrune time.Time
 }
 
 func NewRegistry() *Registry {
@@ -53,10 +61,11 @@ func (registry *Registry) RegisterConfigured(
 		return Session{}, errors.New("configured peer endpoint and observation time are required")
 	}
 	session := Session{
-		Identity:  peerIdentity.Public(),
-		SharedKey: sharedKey,
-		Endpoint:  endpoint,
-		LastSeen:  now.UTC(),
+		Identity:   peerIdentity.Public(),
+		SharedKey:  sharedKey,
+		Endpoint:   endpoint,
+		LastSeen:   now.UTC(),
+		configured: true,
 	}
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
@@ -83,7 +92,27 @@ func (registry *Registry) LearnHello(
 	if !hello.Identity.LocallyValidate() {
 		return Session{}, ErrInvalidIdentity
 	}
+	return registry.LearnValidatedHello(hello, sharedKey, endpoint, now)
+}
+
+// LearnValidatedHello records a HELLO whose identity proof and packet MAC were
+// already verified by packet.AuthenticateHello.
+func (registry *Registry) LearnValidatedHello(
+	hello packet.Hello,
+	sharedKey packet.SessionKey,
+	endpoint netip.AddrPort,
+	now time.Time,
+) (Session, error) {
+	if !endpoint.IsValid() {
+		return Session{}, errors.New("peer endpoint is invalid")
+	}
+	if now.IsZero() {
+		return Session{}, errors.New("peer observation time is required")
+	}
 	nodeID := hello.Identity.Address()
+	if err := nodeID.Validate(); err != nil {
+		return Session{}, ErrInvalidIdentity
+	}
 	session := Session{
 		Identity:        hello.Identity.Public(),
 		SharedKey:       sharedKey,
@@ -97,12 +126,42 @@ func (registry *Registry) LearnHello(
 	}
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
+	registry.pruneLocked(now.UTC(), false)
 	if existing, ok := registry.sessions[nodeID]; ok &&
 		existing.Identity.String() != session.Identity.String() {
 		return Session{}, fmt.Errorf("%w for address %s", ErrIdentityCollision, nodeID)
 	}
+	if _, exists := registry.sessions[nodeID]; !exists && len(registry.sessions) >= maxRegistrySessions {
+		return Session{}, errors.New("peer session capacity exhausted")
+	}
 	registry.sessions[nodeID] = session
 	return cloneSession(session), nil
+}
+
+// Prune removes inactive learned sessions while preserving configured
+// upstreams. It is safe to call periodically or opportunistically.
+func (registry *Registry) Prune(now time.Time) int {
+	if now.IsZero() {
+		return 0
+	}
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	return registry.pruneLocked(now.UTC(), true)
+}
+
+func (registry *Registry) pruneLocked(now time.Time, force bool) int {
+	if !force && !registry.lastPrune.IsZero() && now.Sub(registry.lastPrune) < sessionPruneEvery {
+		return 0
+	}
+	removed := 0
+	for nodeID, session := range registry.sessions {
+		if !session.configured && now.Sub(session.LastSeen) >= sessionIdleTTL {
+			delete(registry.sessions, nodeID)
+			removed++
+		}
+	}
+	registry.lastPrune = now
+	return removed
 }
 
 func (registry *Registry) Get(nodeID domain.NodeID) (Session, error) {

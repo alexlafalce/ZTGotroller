@@ -11,7 +11,7 @@ import (
 
 const (
 	reassemblyTTL      = 5 * time.Second
-	maxReassemblySlots = 1024
+	maxReassemblySlots = 32
 )
 
 type reassemblyKey struct {
@@ -23,6 +23,7 @@ type partialPacket struct {
 	created   time.Time
 	first     []byte
 	total     uint8
+	bytes     int
 	fragments map[uint8][]byte
 }
 
@@ -60,7 +61,15 @@ func (reassembler *reassembler) push(
 			return nil, false, errors.New("fragment total changed within packet")
 		}
 		partial.total = fragment.TotalFragments
+		if _, duplicate := partial.fragments[fragment.Number]; duplicate {
+			return reassembler.complete(key, partial)
+		}
+		if partial.bytes+len(fragment.Payload) > packet.MaxPacketLength {
+			delete(reassembler.partial, key)
+			return nil, false, errors.New("fragment set exceeds reassembly byte budget")
+		}
 		partial.fragments[fragment.Number] = append([]byte(nil), fragment.Payload...)
+		partial.bytes += len(fragment.Payload)
 		return reassembler.complete(key, partial)
 	}
 
@@ -76,7 +85,14 @@ func (reassembler *reassembler) push(
 	if err != nil {
 		return nil, false, err
 	}
-	partial.first = append([]byte(nil), datagram...)
+	if len(partial.first) == 0 {
+		if partial.bytes+len(datagram) > packet.MaxPacketLength {
+			delete(reassembler.partial, key)
+			return nil, false, errors.New("fragment set exceeds reassembly byte budget")
+		}
+		partial.first = append([]byte(nil), datagram...)
+		partial.bytes += len(datagram)
+	}
 	return reassembler.complete(key, partial)
 }
 

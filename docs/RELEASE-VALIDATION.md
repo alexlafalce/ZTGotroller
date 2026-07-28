@@ -22,6 +22,9 @@ artifact.
 - UDP input is unauthenticated until packet armor is verified. Rate limiting,
   bounded fragment reassembly, bounded LZ4 expansion, and physical MTU limits
   constrain work performed before trust is established.
+- Fixed HELLO buckets, byte-budgeted fragment slots, capped expiring peer
+  sessions, and constant-cost health checks are documented in
+  [SECURITY-HARDENING.md](SECURITY-HARDENING.md).
 - The controller identity secret is created with mode `0600`; disclosure allows
   controller impersonation and loss changes the controller address.
 - Upstream root identities and endpoints are trust configuration. Verify them

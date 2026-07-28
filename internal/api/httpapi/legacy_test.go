@@ -120,6 +120,25 @@ func TestLegacyAssignmentModeStrings(t *testing.T) {
 	}
 }
 
+func TestLegacyJSONRejectsOversizedAndTrailingBodies(t *testing.T) {
+	for name, body := range map[string][]byte{
+		"oversized": bytes.Repeat([]byte{' '}, (8<<20)+1),
+		"trailing":  []byte(`{} {}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+			response := httptest.NewRecorder()
+			var destination map[string]any
+			if decodeLegacyJSON(response, request, &destination) {
+				t.Fatal("invalid body was accepted")
+			}
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", response.Code)
+			}
+		})
+	}
+}
+
 func TestLegacyUnstableCollections(t *testing.T) {
 	api := newTestAPI(t)
 	created := perform(t, api, http.MethodPost, "/controller/network", `{"name":"test"}`)

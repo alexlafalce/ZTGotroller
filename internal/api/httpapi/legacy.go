@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -641,9 +642,13 @@ func legacyNodeID(response http.ResponseWriter, value string) (domain.NodeID, bo
 }
 
 func decodeLegacyJSON(response http.ResponseWriter, request *http.Request, destination any) bool {
-	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, 64<<20))
+	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, 8<<20))
 	if err := decoder.Decode(destination); err != nil {
 		writeJSON(response, http.StatusBadRequest, errorResponse{Error: "invalid JSON body"})
+		return false
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeJSON(response, http.StatusBadRequest, errorResponse{Error: "body must contain one JSON value"})
 		return false
 	}
 	return true

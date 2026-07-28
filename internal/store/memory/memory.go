@@ -24,6 +24,10 @@ func New() *Store {
 	}
 }
 
+func (memory *Store) Ping(ctx context.Context) error {
+	return ctx.Err()
+}
+
 func (memory *Store) CreateNetwork(ctx context.Context, network domain.Network) error {
 	if err := ctx.Err(); err != nil {
 		return err
