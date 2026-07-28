@@ -61,3 +61,13 @@ operation. It provides:
 Creation persists revision 1. An update must provide the current revision and
 persists the next revision. A client should read the aggregate again after an
 update when it needs the authoritative revision.
+
+## SQLite store
+
+`internal/store/sqlite` provides durable embedded persistence. Schema migration
+1 stores versioned network and member documents with indexed identity and
+revision columns. Foreign keys enforce member ownership and cascade member
+deletion with their network. WAL mode and a busy timeout are enabled at open.
+
+The driver is a CGo-free SQLite implementation so builds retain straightforward
+cross-compilation across its supported operating systems and architectures.
