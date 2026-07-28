@@ -73,6 +73,9 @@ func TestBuildDictionary(t *testing.T) {
 	if !bytes.Equal(dictionary["I"], expectedIP) {
 		t.Fatalf("static IP = %x, want %x", dictionary["I"], expectedIP)
 	}
+	if !bytes.Equal(dictionary["R"], []byte{1, 0}) {
+		t.Fatalf("rules = %x, want 0100", dictionary["R"])
+	}
 	if len(dictionary["DNS"]) != 128+7+19+1+1 {
 		t.Fatalf("DNS length = %d", len(dictionary["DNS"]))
 	}

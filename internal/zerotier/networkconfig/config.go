@@ -30,7 +30,6 @@ type ConfigInput struct {
 	// These protocol objects are added by their dedicated encoders. Keeping
 	// them explicit prevents an incomplete credential from looking valid.
 	CertificateOfMembership []byte
-	Rules                   []byte
 }
 
 func BuildDictionary(input ConfigInput) ([]byte, error) {
@@ -62,6 +61,10 @@ func BuildDictionary(input ConfigInput) ([]byte, error) {
 		return nil, err
 	}
 	dns, err := serializeDNS(input.Network.DNS)
+	if err != nil {
+		return nil, err
+	}
+	rules, err := SerializeRules(input.Network.Rules)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +117,7 @@ func BuildDictionary(input ConfigInput) ([]byte, error) {
 	for _, field := range []struct {
 		key   string
 		value []byte
-	}{{"C", input.CertificateOfMembership}, {"RT", routes}, {"I", staticIPs}, {"R", input.Rules}, {"DNS", dns}} {
+	}{{"C", input.CertificateOfMembership}, {"RT", routes}, {"I", staticIPs}, {"R", rules}, {"DNS", dns}} {
 		if len(field.value) > 0 {
 			if err := dictionary.Add(field.key, field.value); err != nil {
 				return nil, err
