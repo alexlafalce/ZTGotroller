@@ -48,7 +48,8 @@ The project has a tested domain model, durable SQLite persistence, an
 authenticated administrative API, ZeroTier-compatible identity and packet
 cryptography, bidirectional HELLO/session handling, root announcements, and
 signed private-network configuration responses. Interoperability with
-unmodified agent binaries remains the release gate.
+an unmodified `1.14.2` agent is validated; the current MPL agent and
+peer-to-peer data path remain release gates.
 
 The first interoperability milestone is:
 
@@ -56,6 +57,9 @@ The first interoperability milestone is:
 2. Join both agents to a private network managed by ZTGotroller.
 3. Authorize both members and assign IPv4 addresses.
 4. Establish peer-to-peer connectivity between them.
+
+See [INTEROPERABILITY.md](docs/INTEROPERABILITY.md) for validated runs and
+their exact scope.
 
 ## Repository policy
 
