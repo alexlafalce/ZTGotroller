@@ -19,6 +19,11 @@ Wire packet encoding, signing, identity management, root/planet/moon management,
 SSO and the HTTP API are outside schema version 1. They will be implemented as
 adapters and services over this model.
 
+The application service in `internal/controller` currently owns the first
+controller workflows: creating a network, idempotently registering a member as
+unauthorized, and explicitly changing member authorization with an expected
+revision. It also rejects network IDs owned by another controller identity.
+
 ## Compatibility notes
 
 The defaults intentionally reproduce the 1.14.2 controller:
