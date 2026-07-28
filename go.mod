@@ -1,6 +1,6 @@
 module github.com/alexlafalce/ZTGotroller
 
-go 1.22
+go 1.25.12
 
 require (
 	golang.org/x/crypto v0.24.0
