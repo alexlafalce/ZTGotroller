@@ -45,6 +45,7 @@ Implement and validate:
 - C25519/Poly1305/Salsa20/12 packet construction, authentication, and encryption. (complete)
 - HELLO identity bootstrap, proof validation, shared-key derivation, and encrypted OK response. (complete)
 - Concurrent peer session registry with identity-collision and authenticated-packet handling. (complete)
+- UDP datagram dispatcher for HELLO and NETWORK_CONFIG_REQUEST lifecycles. (complete)
 
 ## Milestone 4: minimal controller
 
