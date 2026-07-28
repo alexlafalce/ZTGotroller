@@ -66,3 +66,26 @@ The harness measures equivalent persisted controller state. It deliberately
 does not claim equivalent packet load, CPU, Go heap allocations, or GC cycles;
 those require a separate agent-driven lab phase under the release comparison
 protocol above.
+
+## Equivalent state-load result
+
+A complete five-run state-load comparison was performed on July 28, 2026 at
+ZTGotroller commit `c57760b515a721286a1755e6a56592a7927d1540`:
+
+| Executable | Median peak RSS | Mean peak RSS | Median peak PSS | Mean peak PSS | Binary size |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ZTGotroller | 22,676 KiB | 22,605.6 KiB | 21,176 KiB | 21,106.4 KiB | 10,432,768 bytes |
+| ZeroTier One 1.14.2 | 16,556 KiB | 16,550.4 KiB | 12,024 KiB | 12,009.2 KiB | 27,388,504 bytes |
+
+Each run loaded 10 private networks and 100 authorized members per network
+through the historical API, warmed for 10 seconds, and sampled for 31 seconds.
+There were five isolated runs per executable (310 total samples). The host was
+Linux `6.18.33.2-microsoft-standard-WSL2` x86-64; ZTGotroller was compiled by
+Go 1.25.12 using `-trimpath -ldflags='-s -w -buildid='`.
+
+At this state size, ZTGotroller's median peak RSS was about 37% higher and its
+median peak PSS about 76% higher than the 1.14.2 full-node process, while its
+binary was about 62% smaller. The per-run peaks are retained under
+[`benchmarks/memory/2026-07-28`](../benchmarks/memory/2026-07-28). These numbers
+remain a controller-state comparison, not the agent-driven packet-load result
+required for a final performance characterization.
