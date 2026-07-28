@@ -45,7 +45,21 @@ public key. The algorithm uses SHA-512, Salsa20, a 2 MiB work area and requires
 the first digest byte to be less than 17. All-zero addresses and addresses
 beginning with `ff` are reserved.
 
-Schema support in this milestone parses and serializes identities. It does not
-yet claim local proof-of-work validation, identity generation, ECDH agreement
-or 96-byte signing. Those operations require cross-language vectors before
-being exposed to controller services.
+The Go signing implementation was checked byte-for-byte against
+`C25519::sign` compiled from 1.14.2 using the known identity in
+`selftest.cpp` and the message
+`ZTGotroller cross-language signature vector`. Both implementations produced:
+
+```text
+ae40a9650a9a41cbad407e9b6fe2c0f63bcbde09fdff53bfff7a852e41479fe0
+150057872ae58da6abe7abc27df723c814bbf4c5ebd87b5e56e32daa1f856c079b
+c20ce84c12a0d91d0f77c8d069eba5cfdbcf3aefd594f267e3d98576aef5ff
+```
+
+The first 64 bytes are a standard Ed25519 signature over the first 32 bytes of
+`SHA-512(message)`; the final 32 bytes repeat that digest prefix. Verification
+checks both parts.
+
+This milestone still does not claim local proof-of-work validation, identity
+generation or ECDH agreement. Those operations require their own
+cross-language vectors.
