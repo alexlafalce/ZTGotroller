@@ -11,11 +11,17 @@ go run ./cmd/ztgotroller \
   -identity ./identity.secret \
   -database ./ztgotroller.db \
   -listen 127.0.0.1:9994 \
-  -udp-listen :9993
+  -udp-listen :9993 \
+  -upstreams ./upstreams.json
 ```
 
 The administrative API listens on `127.0.0.1:9994` and the ZeroTier protocol
 listener uses UDP `9993` by default. The UDP port must be reachable by agents.
+The optional upstream file lets the controller announce its identity to known
+roots so agents can discover it through WHOIS. See
+[UPSTREAM-DISCOVERY.md](docs/UPSTREAM-DISCOVERY.md). It is not needed when
+another trusted bootstrap mechanism already distributes the controller's
+public identity.
 All administrative routes require `Authorization: Bearer <token>`;
 `/healthz` is intentionally public. Binding the HTTP API to a non-loopback
 address should only be done behind TLS or a trusted reverse proxy.
@@ -40,8 +46,9 @@ documentation, and interoperability tests.
 
 The project has a tested domain model, durable SQLite persistence, an
 authenticated administrative API, ZeroTier-compatible identity and packet
-cryptography, HELLO/session handling, and signed private-network configuration
-responses. Interoperability with unmodified agents remains the release gate.
+cryptography, bidirectional HELLO/session handling, root announcements, and
+signed private-network configuration responses. Interoperability with
+unmodified agent binaries remains the release gate.
 
 The first interoperability milestone is:
 

@@ -33,6 +33,7 @@ func run() error {
 		udpAddress    = flag.String("udp-listen", ":9993", "ZeroTier protocol UDP listen address")
 		databasePath  = flag.String("database", "ztgotroller.db", "SQLite database path")
 		identityPath  = flag.String("identity", "identity.secret", "controller identity secret path")
+		upstreamsPath = flag.String("upstreams", "", "optional JSON file with upstream root identities and endpoints")
 	)
 	flag.Parse()
 
@@ -86,6 +87,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	var upstreamManager *transport.UpstreamManager
+	if *upstreamsPath != "" {
+		upstreams, err := transport.LoadUpstreams(*upstreamsPath)
+		if err != nil {
+			return fmt.Errorf("load upstreams: %w", err)
+		}
+		upstreamManager, err = transport.NewUpstreamManager(
+			udpConnection, controllerIdentity, protocolHandler.Registry(), upstreams, 30*time.Second,
+		)
+		if err != nil {
+			return err
+		}
+		protocolServer.SetUpstreamManager(upstreamManager)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -98,6 +113,14 @@ func run() error {
 		}
 		stopped <- err
 	}()
+	if upstreamManager != nil {
+		go func() {
+			if err := upstreamManager.Run(ctx); err != nil {
+				log.Printf("upstream announcements stopped: %v", err)
+				stop()
+			}
+		}()
+	}
 	go func() {
 		log.Printf("ZeroTier protocol listening on %s", udpConnection.LocalAddr())
 		stopped <- protocolServer.Serve(ctx)

@@ -14,6 +14,11 @@ type UDPServer struct {
 	connection *net.UDPConn
 	handler    *Handler
 	fragments  *reassembler
+	upstream   *UpstreamManager
+}
+
+func (server *UDPServer) SetUpstreamManager(manager *UpstreamManager) {
+	server.upstream = manager
 }
 
 func NewUDPServer(connection *net.UDPConn, handler *Handler) (*UDPServer, error) {
@@ -42,6 +47,15 @@ func (server *UDPServer) Serve(ctx context.Context) error {
 		datagram, ready, err := server.fragments.push(buffer[:length], remote, time.Now())
 		if err != nil || !ready {
 			continue
+		}
+		if server.upstream != nil {
+			handled, err := server.upstream.Handle(datagram, remote)
+			if handled {
+				continue
+			}
+			if err != nil {
+				continue
+			}
 		}
 		replies, err := server.handler.Handle(ctx, datagram, remote)
 		if err != nil {
