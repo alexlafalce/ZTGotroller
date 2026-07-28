@@ -59,6 +59,10 @@ func (service *Service) HandleConfigRequest(
 			decoded.Routing.PacketID, request.NetworkID, networkconfig.ErrorAccessDenied,
 		)
 	}
+	member, err = service.ensureAutomaticAssignments(ctx, network, member)
+	if err != nil {
+		return nil, err
+	}
 	revision, err := configRevision(network.Revision, member.Revision)
 	if err != nil {
 		return nil, err

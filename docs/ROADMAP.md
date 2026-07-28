@@ -77,6 +77,8 @@ Status: complete. See [INTEROPERABILITY.md](INTEROPERABILITY.md).
   (controller network/member contract complete; node telemetry endpoints remain)
 - Validate at least one external management UI, such as
   [ZTNet](https://github.com/sinamics/ztnet), against that adapter.
+- Allocate unique IPv4/IPv6 addresses from configured pools when the
+  corresponding ZeroTier assignment mode is enabled. (complete)
 - Publish reproducible binaries and container packaging.
 - Define database and identity backup, restore, and schema migration workflows.
 - Add structured logs, health details, metrics, and upstream status.

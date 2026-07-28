@@ -43,6 +43,11 @@ complete typed mapping for every rule supported by contemporary agents. This
 keeps the persistence schema extensible without claiming wire compatibility
 prematurely.
 
+When `ipv4ZeroTier` or `ipv6ZeroTier` is enabled, an authorized member without
+an address in that family receives the first free address from the configured
+pools. Allocation is serialized, ignores addresses outside managed routes, and
+respects `noAutoAssignIps` and explicit assignments.
+
 Every persisted aggregate carries a schema version and revision. Store
 implementations must use the revision for optimistic concurrency.
 
