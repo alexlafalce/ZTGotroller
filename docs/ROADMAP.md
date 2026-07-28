@@ -48,6 +48,8 @@ Implement and validate:
 - UDP datagram dispatcher for HELLO and NETWORK_CONFIG_REQUEST lifecycles. (complete)
 - Runnable HTTP+UDP controller with coordinated shutdown and HELLO rate limiting. (complete)
 - Administrative read/update API for routes, DNS, rules, authorization, and member IPs. (complete)
+- Protocol-level outgoing fragmentation below physical MTU. (complete)
+- Bounded, expiring inbound fragment reassembly before authentication. (complete)
 
 ## Milestone 4: minimal controller
 
