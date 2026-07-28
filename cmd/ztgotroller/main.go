@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,6 +17,8 @@ import (
 	"github.com/alexlafalce/ZTGotroller/internal/controller"
 	sqlitestore "github.com/alexlafalce/ZTGotroller/internal/store/sqlite"
 	"github.com/alexlafalce/ZTGotroller/internal/zerotier/identity"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/peer"
+	"github.com/alexlafalce/ZTGotroller/internal/zerotier/transport"
 )
 
 func main() {
@@ -27,6 +30,7 @@ func main() {
 func run() error {
 	var (
 		listenAddress = flag.String("listen", "127.0.0.1:9994", "administrative HTTP listen address")
+		udpAddress    = flag.String("udp-listen", ":9993", "ZeroTier protocol UDP listen address")
 		databasePath  = flag.String("database", "ztgotroller.db", "SQLite database path")
 		identityPath  = flag.String("identity", "identity.secret", "controller identity secret path")
 	)
@@ -65,10 +69,27 @@ func run() error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	udpEndpoint, err := net.ResolveUDPAddr("udp", *udpAddress)
+	if err != nil {
+		return fmt.Errorf("resolve UDP listen address: %w", err)
+	}
+	udpConnection, err := net.ListenUDP("udp", udpEndpoint)
+	if err != nil {
+		return fmt.Errorf("listen UDP: %w", err)
+	}
+	defer udpConnection.Close()
+	protocolHandler, err := transport.NewHandler(service, controllerIdentity, peer.NewRegistry())
+	if err != nil {
+		return err
+	}
+	protocolServer, err := transport.NewUDPServer(udpConnection, protocolHandler)
+	if err != nil {
+		return err
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	stopped := make(chan error, 1)
+	stopped := make(chan error, 2)
 	go func() {
 		log.Printf("administrative API listening on %s", server.Addr)
 		err := server.ListenAndServe()
@@ -77,16 +98,30 @@ func run() error {
 		}
 		stopped <- err
 	}()
+	go func() {
+		log.Printf("ZeroTier protocol listening on %s", udpConnection.LocalAddr())
+		stopped <- protocolServer.Serve(ctx)
+	}()
 
+	workersRemaining := 2
+	var result error
 	select {
 	case err := <-stopped:
-		return err
+		workersRemaining--
+		result = err
+		stop()
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf("shutdown HTTP server: %w", err)
-		}
-		return <-stopped
 	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil && result == nil {
+		result = fmt.Errorf("shutdown HTTP server: %w", err)
+	}
+	for workersRemaining > 0 {
+		if err := <-stopped; err != nil && result == nil {
+			result = err
+		}
+		workersRemaining--
+	}
+	return result
 }

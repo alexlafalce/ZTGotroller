@@ -23,6 +23,7 @@ type Handler struct {
 	random   io.Reader
 	now      func() time.Time
 	version  packet.LocalVersion
+	hellos   *helloLimiter
 }
 
 func NewHandler(
@@ -50,6 +51,7 @@ func NewHandler(
 			Major:    0,
 			Minor:    1,
 		},
+		hellos: newHelloLimiter(),
 	}, nil
 }
 
@@ -75,6 +77,9 @@ func (handler *Handler) Handle(
 	}
 	if routing.Cipher == packet.CipherC25519Poly1305Clear &&
 		len(datagram) > 27 && packet.Verb(datagram[27]&0x1f) == packet.VerbHello {
+		if !handler.hellos.allow(remote.Addr(), handler.now()) {
+			return nil, errors.New("HELLO rate limit exceeded")
+		}
 		return handler.handleHello(datagram, remote)
 	}
 	decoded, session, err := handler.peers.Authenticate(

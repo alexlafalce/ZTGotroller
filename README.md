@@ -3,22 +3,22 @@
 Community controller research and implementation for ZeroTier-compatible
 self-hosting.
 
-## Run the administrative service
-
-This stage provides only the administrative API; it does not yet accept
-ZeroTier agent protocol traffic.
+## Run the controller
 
 ```sh
 export ZTGOTROLLER_API_TOKEN='replace-with-a-long-random-token'
 go run ./cmd/ztgotroller \
   -identity ./identity.secret \
-  -database ./ztgotroller.db
+  -database ./ztgotroller.db \
+  -listen 127.0.0.1:9994 \
+  -udp-listen :9993
 ```
 
-The service listens on `127.0.0.1:9994` by default. All administrative routes
-require `Authorization: Bearer <token>`; `/healthz` is intentionally public.
-Binding to a non-loopback address should only be done behind TLS or a trusted
-reverse proxy.
+The administrative API listens on `127.0.0.1:9994` and the ZeroTier protocol
+listener uses UDP `9993` by default. The UDP port must be reachable by agents.
+All administrative routes require `Authorization: Bearer <token>`;
+`/healthz` is intentionally public. Binding the HTTP API to a non-loopback
+address should only be done behind TLS or a trusted reverse proxy.
 
 On first start, the service generates `identity.secret` with mode `0600`.
 Subsequent starts validate and reuse it. Back up this file securely: losing it
@@ -38,10 +38,10 @@ documentation, and interoperability tests.
 
 ## Status
 
-The project has a tested domain model, durable SQLite persistence and an
-authenticated administrative HTTP service. ZeroTier identity cryptography,
-agent wire-protocol handling and network configuration signing are not
-implemented yet.
+The project has a tested domain model, durable SQLite persistence, an
+authenticated administrative API, ZeroTier-compatible identity and packet
+cryptography, HELLO/session handling, and signed private-network configuration
+responses. Interoperability with unmodified agents remains the release gate.
 
 The first interoperability milestone is:
 
