@@ -8,12 +8,16 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
-	ErrConflict = errors.New("revision conflict")
+	ErrNotFound      = errors.New("not found")
+	ErrAlreadyExists = errors.New("already exists")
+	ErrConflict      = errors.New("revision conflict")
 )
 
 // Store is the persistence boundary for controller configuration. Implementations
-// must enforce optimistic concurrency with the Revision fields.
+// must enforce optimistic concurrency with the Revision fields. Create operations
+// persist revision 1. Save operations require the current revision and persist the
+// next one. Delete operations require the current revision. Callers obtain the
+// resulting revision with a subsequent Get.
 type Store interface {
 	CreateNetwork(context.Context, domain.Network) error
 	GetNetwork(context.Context, domain.NetworkID) (domain.Network, error)

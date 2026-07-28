@@ -40,3 +40,19 @@ prematurely.
 
 Every persisted aggregate carries a schema version and revision. Store
 implementations must use the revision for optimistic concurrency.
+
+## In-memory reference store
+
+`internal/store/memory` is the first implementation of the persistence
+contract. It is intended for service tests and local development, not durable
+operation. It provides:
+
+- deterministic list ordering;
+- isolated copies on reads and writes;
+- revision checks for updates and deletes;
+- thread-safe access;
+- cascading member deletion when a network is deleted.
+
+Creation persists revision 1. An update must provide the current revision and
+persists the next revision. A client should read the aggregate again after an
+update when it needs the authoritative revision.
