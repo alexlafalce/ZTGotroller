@@ -22,15 +22,74 @@ func New(service *controller.Service) http.Handler {
 		writeJSON(response, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	handler.mux.HandleFunc("POST /v1/networks", handler.createNetwork)
+	handler.mux.HandleFunc("GET /v1/networks", handler.listNetworks)
+	handler.mux.HandleFunc("GET /v1/networks/{networkID}", handler.getNetwork)
+	handler.mux.HandleFunc("PUT /v1/networks/{networkID}", handler.updateNetwork)
 	handler.mux.HandleFunc(
 		"POST /v1/networks/{networkID}/members/{nodeID}",
 		handler.registerMember,
+	)
+	handler.mux.HandleFunc(
+		"GET /v1/networks/{networkID}/members",
+		handler.listMembers,
+	)
+	handler.mux.HandleFunc(
+		"GET /v1/networks/{networkID}/members/{nodeID}",
+		handler.getMember,
+	)
+	handler.mux.HandleFunc(
+		"PUT /v1/networks/{networkID}/members/{nodeID}",
+		handler.updateMember,
 	)
 	handler.mux.HandleFunc(
 		"PUT /v1/networks/{networkID}/members/{nodeID}/authorization",
 		handler.setAuthorization,
 	)
 	return handler
+}
+
+func (handler *Handler) listNetworks(response http.ResponseWriter, request *http.Request) {
+	networks, err := handler.service.ListNetworks(request.Context())
+	if err != nil {
+		writeError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, networks)
+}
+
+func (handler *Handler) getNetwork(response http.ResponseWriter, request *http.Request) {
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
+		return
+	}
+	network, err := handler.service.GetNetwork(request.Context(), networkID)
+	if err != nil {
+		writeError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, network)
+}
+
+func (handler *Handler) updateNetwork(response http.ResponseWriter, request *http.Request) {
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
+		return
+	}
+	var input struct {
+		Revision uint64 `json:"revision"`
+		controller.NetworkUpdate
+	}
+	if !decodeJSON(response, request, &input) {
+		return
+	}
+	network, err := handler.service.UpdateNetwork(
+		request.Context(), networkID, input.NetworkUpdate, input.Revision,
+	)
+	if err != nil {
+		writeError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, network)
 }
 
 func (handler *Handler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -54,14 +113,12 @@ func (handler *Handler) createNetwork(response http.ResponseWriter, request *htt
 }
 
 func (handler *Handler) registerMember(response http.ResponseWriter, request *http.Request) {
-	networkID, err := domain.ParseNetworkID(request.PathValue("networkID"))
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, errorResponse{Error: err.Error()})
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
 		return
 	}
-	nodeID, err := domain.ParseNodeID(request.PathValue("nodeID"))
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, errorResponse{Error: err.Error()})
+	nodeID, ok := parseNodePath(response, request)
+	if !ok {
 		return
 	}
 	member, err := handler.service.RegisterMember(request.Context(), networkID, nodeID)
@@ -72,15 +129,69 @@ func (handler *Handler) registerMember(response http.ResponseWriter, request *ht
 	writeJSON(response, http.StatusOK, member)
 }
 
-func (handler *Handler) setAuthorization(response http.ResponseWriter, request *http.Request) {
-	networkID, err := domain.ParseNetworkID(request.PathValue("networkID"))
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, errorResponse{Error: err.Error()})
+func (handler *Handler) listMembers(response http.ResponseWriter, request *http.Request) {
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
 		return
 	}
-	nodeID, err := domain.ParseNodeID(request.PathValue("nodeID"))
+	members, err := handler.service.ListMembers(request.Context(), networkID)
 	if err != nil {
-		writeJSON(response, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		writeError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, members)
+}
+
+func (handler *Handler) getMember(response http.ResponseWriter, request *http.Request) {
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
+		return
+	}
+	nodeID, ok := parseNodePath(response, request)
+	if !ok {
+		return
+	}
+	member, err := handler.service.GetMember(request.Context(), networkID, nodeID)
+	if err != nil {
+		writeError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, member)
+}
+
+func (handler *Handler) updateMember(response http.ResponseWriter, request *http.Request) {
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
+		return
+	}
+	nodeID, ok := parseNodePath(response, request)
+	if !ok {
+		return
+	}
+	var input struct {
+		Revision uint64 `json:"revision"`
+		controller.MemberUpdate
+	}
+	if !decodeJSON(response, request, &input) {
+		return
+	}
+	member, err := handler.service.UpdateMember(
+		request.Context(), networkID, nodeID, input.MemberUpdate, input.Revision,
+	)
+	if err != nil {
+		writeError(response, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, member)
+}
+
+func (handler *Handler) setAuthorization(response http.ResponseWriter, request *http.Request) {
+	networkID, ok := parseNetworkPath(response, request)
+	if !ok {
+		return
+	}
+	nodeID, ok := parseNodePath(response, request)
+	if !ok {
 		return
 	}
 	var input struct {
@@ -98,6 +209,24 @@ func (handler *Handler) setAuthorization(response http.ResponseWriter, request *
 		return
 	}
 	writeJSON(response, http.StatusOK, member)
+}
+
+func parseNetworkPath(response http.ResponseWriter, request *http.Request) (domain.NetworkID, bool) {
+	networkID, err := domain.ParseNetworkID(request.PathValue("networkID"))
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return "", false
+	}
+	return networkID, true
+}
+
+func parseNodePath(response http.ResponseWriter, request *http.Request) (domain.NodeID, bool) {
+	nodeID, err := domain.ParseNodeID(request.PathValue("nodeID"))
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return "", false
+	}
+	return nodeID, true
 }
 
 func decodeJSON(response http.ResponseWriter, request *http.Request, destination any) bool {

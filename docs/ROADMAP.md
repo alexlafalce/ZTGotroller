@@ -47,6 +47,7 @@ Implement and validate:
 - Concurrent peer session registry with identity-collision and authenticated-packet handling. (complete)
 - UDP datagram dispatcher for HELLO and NETWORK_CONFIG_REQUEST lifecycles. (complete)
 - Runnable HTTP+UDP controller with coordinated shutdown and HELLO rate limiting. (complete)
+- Administrative read/update API for routes, DNS, rules, authorization, and member IPs. (complete)
 
 ## Milestone 4: minimal controller
 

@@ -25,6 +25,26 @@ func TestAdministrativeLifecycle(t *testing.T) {
 	}
 	var network domain.Network
 	decodeResponse(t, networkResponse, &network)
+	networkUpdate := perform(t, api, http.MethodPut, "/v1/networks/"+string(network.ID), `{
+		"revision":1,
+		"name":"home",
+		"private":true,
+		"mtu":2800,
+		"multicastLimit":32,
+		"enableBroadcast":true,
+		"assignment":{},
+		"routes":[{"target":"10.10.0.0/16"}],
+		"ipPools":[],
+		"dns":{"domain":"home.arpa","servers":["10.10.0.1"]},
+		"rules":[{"type":"ACTION_ACCEPT"}]
+	}`)
+	if networkUpdate.Code != http.StatusOK {
+		t.Fatalf("update network returned %d: %s", networkUpdate.Code, networkUpdate.Body.String())
+	}
+	decodeResponse(t, networkUpdate, &network)
+	if network.Revision != 2 || len(network.Routes) != 1 {
+		t.Fatalf("unexpected updated network: %+v", network)
+	}
 
 	memberPath := "/v1/networks/" + string(network.ID) + "/members/abcdef1234"
 	memberResponse := perform(t, api, http.MethodPost, memberPath, "")
@@ -51,6 +71,26 @@ func TestAdministrativeLifecycle(t *testing.T) {
 	decodeResponse(t, authorizationResponse, &member)
 	if !member.Authorized || member.Revision != 2 {
 		t.Fatalf("unexpected authorized member: %+v", member)
+	}
+	memberUpdate := perform(
+		t,
+		api,
+		http.MethodPut,
+		memberPath,
+		`{"revision":2,"activeBridge":false,"noAutoAssignIps":true,`+
+			`"ipAssignments":["10.10.0.2"],"capabilities":[],"tags":[]}`,
+	)
+	if memberUpdate.Code != http.StatusOK {
+		t.Fatalf("update member returned %d: %s", memberUpdate.Code, memberUpdate.Body.String())
+	}
+	decodeResponse(t, memberUpdate, &member)
+	if member.Revision != 3 || len(member.IPAssignments) != 1 ||
+		member.IPAssignments[0].String() != "10.10.0.2" {
+		t.Fatalf("unexpected configured member: %+v", member)
+	}
+	list := perform(t, api, http.MethodGet, "/v1/networks/"+string(network.ID)+"/members", "")
+	if list.Code != http.StatusOK {
+		t.Fatalf("list members returned %d: %s", list.Code, list.Body.String())
 	}
 }
 
