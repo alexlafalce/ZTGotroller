@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/alexlafalce/ZTGotroller/internal/domain"
@@ -18,6 +19,7 @@ type Service struct {
 	controllerID domain.NodeID
 	store        store.Store
 	now          Clock
+	ipamMu       sync.Mutex
 }
 
 func (service *Service) ControllerID() domain.NodeID {
